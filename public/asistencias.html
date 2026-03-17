@@ -939,13 +939,30 @@ function renderAttendanceTable(data) {
 
 // Función para generar un combobox con el valor predeterminado de la base de datos
 function renderComboBox(fieldName, value, options = [ "1", "F", "0.5TE", "1TE", "2TE", "3TE", "DT", "DFT", "VAC", "INC"]) {
-    const optionsHTML = options.map(option => 
-        `<option value="${option}" ${value == option ? 'selected' : ''}>${option}</option>`
-    ).join('');
+    const restrictedSundayOptions = ['DT', 'VAC'];
+    const normalizedValue = value == null || value === '' ? '1' : String(value);
+
+    let availableOptions = [...options];
+    if (fieldName === 'DOMINGO') {
+        availableOptions = options.filter(option => !restrictedSundayOptions.includes(String(option)));
+    }
+
+    const currentValueIsRestrictedOnSunday =
+        fieldName === 'DOMINGO' && restrictedSundayOptions.includes(normalizedValue);
+
+    const legacySundayOptionHTML = currentValueIsRestrictedOnSunday
+        ? `<option value="${normalizedValue}" selected disabled>${normalizedValue} (no disponible en domingo)</option>`
+        : '';
+
+    const optionsHTML = availableOptions.map(option => {
+        const optionValue = String(option);
+        return `<option value="${optionValue}" ${normalizedValue === optionValue ? 'selected' : ''}>${optionValue}</option>`;
+    }).join('');
 
     return `
         <td>
             <select name="${fieldName}" disabled ondblclick="enableEdit(this)">
+                ${legacySundayOptionHTML}
                 ${optionsHTML}
             </select>
         </td>
