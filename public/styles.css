@@ -1,0 +1,1454 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #eef7f0; /* Azul claro suave para el fondo */
+}
+
+.container {
+    max-width: calc(100% - 100px); /* 50px de margen a cada lado */
+    margin: 0 auto;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    background-color: #f0f0f0a3; /* Color gris suave */
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #5b936f; /* Azul oscuro */
+}
+
+.toolbar {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 20px;
+    background: linear-gradient(135deg, #86b99a, #4f8a68); /* Degradado de azul */
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #4f7f60; /* Borde azul más oscuro */
+}
+
+.toolbar a {
+    color: #ffffff; /* Blanco */
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.toolbar a:hover {
+    text-decoration: underline;
+}
+
+
+
+.user-info {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #4f7f60; /* Azul más oscuro para mejor legibilidad */
+}
+
+.logout-btn {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 10px 15px;
+    background: linear-gradient(135deg, #86b99a, #4f8a68); /* Degradado de azul */
+    color: white;
+    text-align: center;
+    border-radius: 5px;
+    text-decoration: none;
+    cursor: pointer;
+    border: 1px solid #4f7f60; /* Borde azul más oscuro */
+}
+
+.logout-btn:hover {
+    background: linear-gradient(135deg, #77ad8b, #3f7757); /* Degradado más oscuro al pasar el ratón */
+}
+
+.table-container {
+    width: 100%;
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-bottom: 20px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+}
+
+table, th, td {
+    border: 1px solid #d8ebdd; /* Azul claro */
+}
+
+th, td {
+    padding: 10px;
+    text-align: center;
+    border-left: 1px solid #c3ddca; /* Borde izquierdo azul claro */
+}
+
+th {
+    background: linear-gradient(135deg, #86b99a, #4f8a68); /* Degradado metálico */
+    color: white;
+    border-top: 3px solid #4f7f60; /* Borde superior más grueso */
+    border-bottom: 3px solid #4f7f60; /* Borde inferior más grueso */
+    position: relative;
+}
+
+th:after {
+    content: '';
+    display: block;
+    width: 100%;
+    height: 5px;
+    background: linear-gradient(to right, #4f8a68, #86b99a); /* Degradado de barra inferior */
+    position: absolute;
+    bottom: -5px;
+    left: 0;
+    border-radius: 0 0 4px 4px;
+}
+
+th button {
+    background-color: transparent;
+    border: none;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+th button:hover {
+    text-decoration: underline;
+}
+
+td {
+    background-color: #e7f3ea; /* Azul claro para celdas */
+    border-bottom: 2px solid #c3ddca; /* Borde inferior más oscuro */
+    white-space: nowrap; /* Evitar quiebres de línea */
+    overflow: hidden; /* Ocultar el texto que no cabe */
+    text-overflow: ellipsis; /* Añadir puntos suspensivos si el texto es muy largo */
+}
+
+td:first-child {
+    border-left: none; /* Sin borde izquierdo en la primera columna */
+}
+
+td:last-child {
+    border-right: none; /* Sin borde derecho en la última columna */
+}
+
+.module {
+    display: none;
+}
+
+/* Overlay */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7); /* Fondo oscuro translúcido */
+    z-index: 999;
+    backdrop-filter: blur(5px);
+}
+
+.modal-overlay.show {
+    display: block;
+}
+
+/* Modal */
+.modal-content {
+    background: linear-gradient(to bottom right, #ffffff, #f9f9f9);
+    padding: 20px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90%;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    display: none;
+    border: 2px solid #4a7d5d;
+    overflow-y: auto; /* Habilitar desplazamiento vertical */
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Mostrar el modal */
+.modal-content.show {
+    display: block;
+}
+
+/* Personalización de la barra de desplazamiento */
+.modal-content::-webkit-scrollbar {
+    width: 8px; /* Ancho de la barra de desplazamiento */
+}
+
+.modal-content::-webkit-scrollbar-track {
+    background: #f1f1f1; /* Color de fondo de la pista */
+    border-radius: 10px; /* Bordes redondeados */
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+    background: linear-gradient(to bottom, #5f9e74, #4a7d5d); /* Color degradado para el deslizador */
+    border-radius: 10px; /* Bordes redondeados */
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(to bottom, #4a7d5d, #355a43); /* Color más oscuro al pasar el cursor */
+}
+
+/* Título */
+.modal-content h2 {
+    font-size: 1.6rem;
+    font-weight: bold;
+    text-align: center;
+    margin: 0 0 20px 0;
+    color: #4a7d5d;
+    border-bottom: 2px solid #5f9e74;
+    padding-bottom: 10px;
+}
+
+/* Formulario */
+.modal-content form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.modal-content label {
+    font-weight: bold;
+    color: #333;
+}
+
+.modal-content input,
+.modal-content select {
+    padding: 10px;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    transition: border-color 0.3s;
+}
+
+.modal-content input:focus,
+.modal-content select:focus {
+    border-color: #5f9e74;
+    outline: none;
+}
+
+/* Botones */
+.modal-content .form-buttons {
+    display: flex;
+    justify-content: space-between;
+}
+
+.modal-content .form-buttons button {
+    padding: 10px 20px;
+    font-size: 1rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.modal-content #save-employee-btn {
+    background: linear-gradient(to right, #28a745, #218838);
+    color: white;
+    font-weight: bold;
+}
+
+.modal-content #save-employee-btn:hover {
+    background: #218838;
+    transform: scale(1.05);
+}
+
+.modal-content button[type="button"] {
+    background: linear-gradient(to right, #dc3545, #c82333);
+    color: white;
+    font-weight: bold;
+}
+
+.modal-content button[type="button"]:hover {
+    background: #c82333;
+    transform: scale(1.05);
+}
+
+/* Animación */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -60%);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%);
+    }
+}
+
+/* Media Queries para pantallas pequeñas */
+@media (max-height: 500px) {
+    .modal-content {
+        max-height: 80%;
+        overflow-y: auto;
+    }
+
+    .modal-content h2 {
+        font-size: 1.4rem;
+    }
+
+    .modal-content .form-buttons button {
+        padding: 8px 16px;
+        font-size: 0.9rem;
+    }
+}
+
+.invalid-department {
+    color: red;
+    font-weight: bold;
+}
+
+.invalid-position {
+    color: red;
+    font-weight: bold;
+}
+
+
+
+/* Estilos para el recuadro de búsqueda */
+.search-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.search-container input[type="text"] {
+    padding: 10px;
+    font-size: 16px;
+    border: 2px solid #c3ddca; /* Borde azul claro */
+    border-radius: 5px 0 0 5px;
+    outline: none;
+    width: 300px;
+    transition: border-color 0.3s ease-in-out;
+}
+
+.search-container input[type="text"]:focus {
+    border-color: #5f9e74; /* Borde azul más oscuro al enfocar */
+}
+
+.search-container button {
+    padding: 10px 20px;
+    font-size: 16px;
+    background: linear-gradient(135deg, #86b99a, #4f8a68); /* Degradado de azul */
+    color: white;
+    border: 2px solid #c3ddca; /* Borde azul claro */
+    border-radius: 0 5px 5px 0;
+    cursor: pointer;
+    transition: background 0.3s ease-in-out, border-color 0.3s ease-in-out;
+}
+
+.search-container button:hover {
+    background: linear-gradient(135deg, #77ad8b, #3f7757); /* Degradado más oscuro al pasar el ratón */
+    border-color: #5f9e74; /* Borde más oscuro al pasar el ratón */
+}
+
+.user-info .info-box {
+    display: inline-block;
+    margin: 5px;
+    padding: 10px 15px;
+    background: linear-gradient(135deg, #86b99a, #4f8a68); /* Degradado de azul */
+    color: white;
+    text-align: center;
+    border-radius: 5px;
+    border: 1px solid #4f7f60; /* Borde azul más oscuro */
+}
+
+.user-info .info-box:hover {
+    background: linear-gradient(135deg, #77ad8b, #3f7757); /* Degradado más oscuro al pasar el ratón */
+}
+
+
+/* Contenedor y botón "Exportar Todos" */
+.export-all-container {
+    margin-top: 20px;
+    text-align: right;
+}
+
+.export-all-btn {
+    padding: 10px 20px;
+    background-color: #5c9b73; /* Color azul */
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.export-all-btn:hover {
+    background-color: #4a7d5d;
+}
+
+/* ======== Fijar las primeras tres columnas en la tabla ======== */
+
+/* Fija la primera columna (Código Trabajador) */
+th:nth-child(1), td:nth-child(1) {
+    position: sticky;
+    left: 0;
+    background-color: rgb(252, 245, 164);
+    z-index: 2; /* Asegura que esté sobre las demás columnas */
+}
+
+/* Fija la última columna (Acciones) para que siempre sea visible */
+.attendance-table th:last-child, 
+.attendance-table td:last-child {
+    position: sticky;
+    right: 0;
+    background-color: rgb(252, 245, 164); /* Fondo amarillo para la columna de acciones */
+    z-index: 2; /* Asegura que la columna de acciones esté visible sobre las demás */
+}
+
+
+
+/* Estilos específicos para la tabla de asistencias */
+.attendance-table th:nth-child(4),
+.attendance-table th:nth-child(5),
+.attendance-table th:nth-child(6),
+.attendance-table th:nth-child(7),
+.attendance-table th:nth-child(8),
+.attendance-table th:nth-child(9),
+.attendance-table th:nth-child(10) {
+    width: 30px; /* Ancho reducido solo para los días */
+    text-align: center;
+}
+
+.attendance-table td:nth-child(4),
+.attendance-table td:nth-child(5),
+.attendance-table td:nth-child(6),
+.attendance-table td:nth-child(7),
+.attendance-table td:nth-child(8),
+.attendance-table td:nth-child(9),
+.attendance-table td:nth-child(10) {
+    width: 30px; /* Ancho reducido solo para los días */
+    text-align: center;
+    padding: 5px;
+}
+
+/* Mantener el tamaño de fuente heredado */
+.attendance-table th,
+.attendance-table td {
+    font-size: inherit;
+    white-space: nowrap; /* Evitar que el contenido se extienda */
+}
+
+/* Reducir el tamaño de los inputs en la tabla de asistencias */
+.attendance-table input[type="text"] {
+    width: 50px; /* Ajusta este valor según el ancho que desees */
+    text-align: center; /* Centrar el contenido */
+    padding: 2px; /* Reducir el padding para que no se vea tan grande */
+    box-sizing: border-box; /* Asegurar que el ancho incluya el padding y el borde */
+}
+
+/* Ajustar el ancho de los campos numéricos */
+.attendance-table input[type="number"][name="COMPENSACION"],
+.attendance-table input[type="number"][name="COMISION"],
+.attendance-table input[type="number"][name="BONO_PRODUCTIVIDAD"],
+.attendance-table input[type="number"][name="APOYO_TRANSPORTE"],
+.attendance-table input[type="number"][name="DESCUENTO_PRESTAMO_INVENTARIO"],
+.attendance-table input[type="number"][name="BONO_RECOMENDACION"],
+.attendance-table input[type="number"][name="DESCUENTO_EFECTIVO"] {
+    width: 80px; /* Reducir el ancho para campos numéricos */
+    text-align: center; /* Centrar el texto dentro de los campos */
+    padding: 5px;
+    box-sizing: border-box;
+}
+
+.attendance-table select {
+    font-size: 16px; /* Aumenta el tamaño de la letra */
+    height: 35px;    /* Incrementa la altura del select */
+    padding: 0 5px;  /* Un poco de relleno interno */
+    box-sizing: border-box; /* Asegura que el padding se cuente dentro del ancho/alto */
+}
+
+
+
+/* Ajustar el ancho del campo de "Notas" */
+.attendance-table input[type="text"][name="NOTAS"] {
+    width: 200px; /* Ampliar el ancho del campo de notas */
+    text-align: left; /* Alinear el texto a la izquierda */
+    padding: 5px;
+    box-sizing: border-box;
+}
+
+/* Fijar la última columna (Acciones) para que siempre sea visible */
+.attendance-table th:last-child, 
+.attendance-table td:last-child {
+    position: sticky;
+    right: 0;
+    background-color: rgb(252, 245, 164); /* Fondo amarillo para la columna de acciones */
+    z-index: 2; /* Asegura que la columna de acciones esté visible sobre las demás */
+}
+
+/* Fijar el encabezado de la columna de acciones para que también sea visible */
+.attendance-table thead th:last-child {
+    position: sticky;
+    right: 0;
+    background-color: rgb(252, 245, 164); /* Fondo amarillo para el encabezado */
+    z-index: 3; /* Asegura que el encabezado esté visible sobre las demás celdas */
+}
+
+/* Asegurarse de que la tabla y su contenedor permitan scroll horizontal */
+.table-container {
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+#personal-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#personal-table th,
+#personal-table td {
+    padding: 10px;
+    border: 1px solid #ccc;
+    text-align: left;
+}
+
+#personal-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#personal-table th,
+#personal-table td {
+    padding: 10px;
+    border: 1px solid #ccc;
+    text-align: left;
+}
+
+#personal-table th {
+    background-color: #f4f4f4;
+}
+
+#personal-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#personal-table th,
+#personal-table td {
+    padding: 10px;
+    border: 1px solid #ccc;
+    text-align: left;
+}
+
+#personal-table th {
+    background-color: #f4f4f4;
+}
+
+/* Fijar la primera columna (ID) */
+#personal-table th:nth-child(1),
+#personal-table td:nth-child(1) {
+    position: sticky;
+    left: 0;
+    background-color: rgb(252, 245, 164); /* Fondo fijo */
+    z-index: 2; /* Asegurarse de que esté sobre las otras columnas */
+    min-width: 80px; /* Define un ancho mínimo consistente */
+    max-width: 80px; /* Evita que crezca */
+}
+
+/* Fijar la segunda columna (NOMBRE COMPLETO) */
+#personal-table th:nth-child(2),
+#personal-table td:nth-child(2) {
+    position: sticky;
+    left: 80px; /* Ancho acumulado exacto de la primera columna */
+    background-color: #d9eadc; /* Fondo fijo */
+    z-index: 2; /* Asegurarse de que esté sobre las otras columnas */
+    min-width: 200px; /* Define un ancho mínimo */
+    max-width: 300px; /* Permite crecer hasta cierto punto */
+    white-space: nowrap; /* Evita que el texto se divida en varias líneas */
+    overflow: hidden; /* Oculta el texto desbordado */
+    text-overflow: ellipsis; /* Muestra "..." si el texto es muy largo */
+}
+
+#personal-table td:nth-child(2):hover {
+    white-space: normal; /* Permite dividir el texto en varias líneas */
+    overflow: visible; /* Muestra el texto completo */
+    text-overflow: unset; /* Quita los puntos suspensivos */
+    z-index: 3; /* Asegura que esté sobre las demás celdas */
+    background-color: #3c3ce1; /* Azul del hover en otras celdas */
+    color: #f5f5f7; /* Texto blanco */
+}
+
+
+/* Fijar la última columna (Acciones) */
+#personal-table th:last-child,
+#personal-table td:last-child {
+    position: sticky;
+    right: 0;
+    background-color: #fff; /* Fondo fijo */
+    z-index: 2; /* Asegurarse de que esté sobre las otras columnas */
+}
+
+/* Asegurar que el encabezado de la última columna esté fijo */
+#personal-table th:last-child {
+    z-index: 3; /* Asegurarse de que el encabezado esté sobre el resto de la tabla */
+}
+
+
+
+/* Asegurarse de que la tabla y su contenedor permitan scroll horizontal */
+.table-container {
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+#vacation-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+/* Subrayar los encabezados de la tabla de vacaciones cuando se pasa el cursor */
+#vacation-table th:hover {
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+#vacation-table th,
+#vacation-table td {
+    padding: 10px;
+    border: 1px solid #ccc;
+    text-align: left;
+}
+
+#vacation-table th {
+    background-color: #f4f4f4;
+}
+
+/* Fijar la columna de acciones */
+#vacation-table th:last-child,
+#vacation-table td:last-child {
+    position: sticky;
+    right: 0;
+    background-color: #fff; /* Color de fondo fijo para la columna */
+    z-index: 2; /* Asegurarse de que esté sobre las otras columnas */
+}
+
+/* Asegurar que el encabezado de la columna de acciones esté fijo */
+#vacation-table th:last-child {
+    z-index: 3; /* Asegurarse de que el encabezado esté sobre el resto de la tabla */
+}
+
+.logo {
+    width: 130px; /* Tamaño más pequeño */
+    height: auto; /* Mantener la proporción del logo */
+    vertical-align: middle; /* Alinea verticalmente el logo con el texto */
+    margin-right: 5px; /* Espacio entre el logo y el texto */
+}
+
+.icono-nav {
+    width: 30px; /* Puedes ajustar el tamaño del ícono */
+    height: auto; /* Mantiene la proporción del ícono */
+    margin-right: 10px; /* Espacio entre el ícono y el texto */
+    vertical-align: middle; /* Alinear el ícono con el texto del enlace */
+}
+
+.version-info {
+    position: absolute;
+    top: 10px; /* Ajusta la distancia desde el borde superior */
+    right: 20px; /* Ajusta la distancia desde el borde derecho */
+    font-size: 14px; /* Tamaño del texto */
+    color: #5b936f; /* Color azul oscuro */
+    background-color: rgba(255, 255, 255, 0.8); /* Fondo semitransparente */
+    padding: 5px 10px; /* Espacio interno */
+    border-radius: 5px; /* Bordes redondeados */
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1); /* Sombra para resaltar */
+}
+
+/* Estilo para subrayar el encabezado cuando se pasa el cursor */
+#attendance-table th:hover {
+    text-decoration: underline;
+    cursor: pointer; /* Muestra el cursor de mano al pasar sobre el encabezado */
+}
+
+
+
+
+#personal-table tbody tr:hover td {
+    background-color: #3c3ce1; /* Asegurarse de que las celdas individuales también se resalten */
+    color: #f5f5f7;
+}
+
+#vacation-table tbody tr:hover td {
+    background-color: #3c3ce1; /* Color de fondo de las celdas individuales */
+    color: #f5f5f7; /* Color del texto dentro de las celdas */
+}
+
+#attendance-table tbody tr:hover td {
+    background-color: #3c3ce1; /* Color de fondo de las celdas individuales */
+    color: #f5f5f7; /* Color del texto dentro de las celdas */
+}
+
+/* css ántañña responsiva a celular*/
+@media (max-width: 768px) {
+    body {
+        padding: 10px; /* Aplicar uniformemente a todas las resoluciones menores de 768px */
+    }
+
+    .container {
+        max-width: calc(100% - 20px); /* Menos margen para mejor aprovechamiento del espacio */
+        padding: 15px; /* Adecuado para la mayoría de dispositivos móviles y tablets */
+    }
+
+    h1 { /* Corregido, sin punto para seleccionar el elemento */
+        font-size: 20px; /* Tamaño adecuado para lectura en dispositivos más pequeños */
+    }
+
+    .toolbar, .user-info, .logout-btn {
+        font-size: 14px; /* Tamaño de fuente ajustado para legibilidad */
+    }
+
+    .table-container table, th, td {
+        font-size: 12px; /* Reducción de la fuente para adaptarse a espacios más reducidos */
+    }
+
+    .table-container:active {
+        cursor: grabbing;
+    }
+}
+
+/* Ajustes específicos para dispositivos muy pequeños, menos de 600px */
+@media (max-width: 600px) {
+    .container {
+        max-width: calc(100% - 40px); /* Ajuste para muy pequeños dispositivos */
+    }
+}
+
+/* Estilos base para todos los botones */
+button, .button {
+    font-size: 13px; /* Tamaño de fuente equilibrado */
+    font-weight: bold; /* Texto más grueso */
+    padding: 10px 15px; /* Espacio suficiente para un clic fácil */
+    background-color: #ffffff; /* Fondo blanco para un look limpio */
+    color: #626262; /* Color de texto gris oscuro para contraste */
+    border: 2px solid transparent; /* Bordes transparentes inicialmente */
+    border-radius: 4px; /* Bordes ligeramente redondeados */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); /* Sombra más pronunciada para efecto de elevación */
+    cursor: pointer; /* Cursor de mano */
+    transition: background-color 0.3s, border-color 0.3s, transform 0.2s, box-shadow 0.3s; /* Transiciones suaves */
+    text-decoration: none; /* Sin subrayado */
+    display: inline-block; /* Comportamiento de bloque en línea */
+}
+
+/* Efecto de hover para todos los botones */
+button:hover, .button:hover {
+    background-color: #f0f0f0; /* Cambia al color de fondo al pasar el ratón */
+    transform: translateY(-3px); /* Mueve el botón hacia arriba */
+    box-shadow: 0 5px 7px rgba(0, 0, 0, 0.3); /* Sombra más intensa */
+}
+
+/* Media query para ajustes en dispositivos móviles */
+@media (max-width: 768px) {
+    button, .button {
+        font-size: 13px; /* Tamaño de fuente más pequeño para dispositivos móviles */
+        padding: 10px 20px; /* Padding reducido para ahorrar espacio */
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15); /* Sombra menos pronunciada para una apariencia más ligera */
+    }
+}
+
+/* Ajustes para pantallas grandes */
+@media (min-width: 1200px) {
+    button, .button {
+        font-size: calc(13px + 0.3vw); /* Ajustar el tamaño de la fuente según el ancho de la ventana */
+    }
+}
+
+/* Botón "Editar" */
+.edit-btn {
+    background-color: #ffc107; /* Color amarillo */
+    border-color: #e6a800; /* Borde amarillo más oscuro para mayor definición */
+}
+
+
+
+/* Botón "Exportar" */
+.export-btn {
+    background-color: #28a745; /* Color verde */
+    border-color: #218838; /* Borde verde más oscuro */
+}
+
+
+
+/* Nuevo botón "Baja" con color rojo */
+.delete-btn {
+    background-color: #ff6347; /* Color rojo (tomate) */
+    border-color: #e05241; /* Borde rojo más oscuro */
+}
+
+.delete-btn:hover, .delete-btn:focus {
+    background-color: #e05241; /* Rojo más oscuro al interactuar */
+    border-color: #c04439;
+    transform: translateY(-3px); /* Mueve el botón hacia arriba */
+    box-shadow: 0 5px 7px rgba(0, 0, 0, 0.3); /* Sombra más intensa */
+}
+
+thead th {
+    cursor: pointer;
+    background-color: #f4f4f4;
+    transition: background-color 0.3s, text-decoration 0.3s ease-in-out;
+    padding: 10px; /* Asegura suficiente espacio alrededor del texto */
+    text-align: center; /* Centra el texto dentro del encabezado */
+    position: relative; /* Necesario para los pseudoelementos */
+}
+
+thead th:hover {
+    background-color: #e0e0e0; /* Cambia el color de fondo al pasar el ratón */
+    text-decoration: underline; /* Subraya el texto al pasar el ratón */
+}
+
+/* Opcional: Agrega un efecto de subrayado más estilizado usando pseudoelementos */
+thead th::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background-color: transparent;
+    transition: background-color 0.3s;
+    border-radius: 1px; /* Bordes redondeados para la línea */
+}
+
+thead th:hover::after {
+    background-color: #5b936f; /* Cambia el color de la línea al pasar el ratón */
+}
+
+/* Selectores responsivos */
+
+.selectors {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center; /* Alinea verticalmente los elementos */
+    gap: 10px; /* Espacio entre elementos */
+    padding: 10px;
+    background-color: #f4f4f4; /* Fondo para el contenedor de los selectores */
+    border-radius: 5px;
+}
+
+.selectors label {
+    font-weight: bold; /* Texto en negrita para las etiquetas */
+    margin-right: 5px; /* Espacio a la derecha de las etiquetas */
+}
+
+.selectors select {
+    padding: 5px 10px; /* Espacio interno para los selectores */
+    border: 1px solid #ccc; /* Borde sutil */
+    border-radius: 4px; /* Bordes redondeados */
+    cursor: pointer; /* Cursor de mano */
+}
+
+.selectors input[type="text"] {
+    padding: 5px 10px; /* Espacio interno */
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #fff; /* Fondo blanco */
+}
+
+.selectors button {
+    padding: 6px 12px;
+    background-color: #6ea985; /* Color de fondo azul */
+    color: white; /* Texto en blanco */
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s; /* Transiciones para efecto interactivo */
+}
+
+.selectors button:hover {
+    background-color: #5b936f; /* Color azul más oscuro al pasar el ratón */
+    transform: translateY(-2px); /* Efecto de elevación al pasar el ratón */
+}
+
+
+/* Media Queries para ajustes en dispositivos móviles */
+@media (max-width: 768px) {
+    .selectors {
+        flex-direction: column; /* Los elementos se apilan verticalmente en pantallas pequeñas */
+    }
+
+    .selectors label {
+        margin-bottom: 5px; /* Espacio debajo de las etiquetas para claridad */
+    }
+
+    .selectors select, .selectors input[type="text"], .selectors button {
+        width: 100%; /* Los elementos ocupan todo el ancho disponible */
+    }
+}
+
+
+    .form-group label[for="birth_date"], 
+    .form-group #birth_date {
+        display: none !important;
+    }
+
+    /* Animación de desvanecimiento */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Aplica la animación a la tabla cada vez que cambie */
+.table-container {
+    animation: fadeIn 0.5s ease-out;
+}
+
+.table-container {
+    max-height: 700px; /* Ajusta la altura según tus necesidades */
+    overflow-y: auto; /* Habilita el desplazamiento vertical */
+    overflow-x: auto; /* Habilita el desplazamiento horizontal si es necesario */
+}
+
+
+
+/* Encabezados de la tabla */
+#attendance-table thead th {
+    position: sticky;
+    top: 0;
+    background-color: #ffffff; /* Fondo blanco para el encabezado */
+    z-index: 3; /* Asegúrate de que sea más alto que las columnas fijas */
+    border-bottom: 2px solid #ddd;
+}
+
+
+/* Encabezados fijos */
+.table-container table thead th {
+    position: sticky;
+    top: 0;
+    background-color: #ffffff; /* Fondo blanco para el encabezado */
+    z-index: 3; /* Más alto que las columnas fijas */
+    border-bottom: 2px solid #ddd;
+    box-shadow: 0 2px 2px rgba(0, 0, 0, 0.1); /* Sombra ligera para destacar */
+}
+
+/* Encabezados fijos para la tabla de administración de personal */
+#personal-table thead th {
+    position: sticky;
+    top: 0;
+    background-color: #ffffff; /* Fondo blanco para el encabezado */
+    z-index: 3; /* Encabezados siempre sobre las columnas fijas */
+    border-bottom: 2px solid #ddd;
+    box-shadow: 0 2px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Primera y segunda columna fija */
+#personal-table th:nth-child(1),
+#personal-table td:nth-child(1),
+#personal-table th:nth-child(2),
+#personal-table td:nth-child(2) {
+    position: sticky;
+    left: 0;
+    
+    z-index: 2; /* Menor que los encabezados */
+    border-right: 1px solid #ddd; /* Separador visual */
+}
+
+/* Resolver superposición en los encabezados de las columnas fijas */
+#personal-table thead th:nth-child(1),
+#personal-table thead th:nth-child(2) {
+    z-index: 4; /* Encabezados de columnas fijas sobre las columnas */
+}
+
+.department-baja {
+    color: red;
+    font-weight: bold;
+}
+
+input[type="text"],
+textarea {
+    width: 100%; /* Ajusta el ancho al contenedor padre */
+    max-width: 600px; /* Máximo ancho para mantener proporción */
+    padding: 12px 16px; /* Espaciado interno cómodo */
+    font-size: 16px; /* Texto claro y legible */
+    font-family: 'Arial', sans-serif; /* Fuente profesional */
+    border: 2px solid #ccc; /* Borde neutro */
+    border-radius: 8px; /* Bordes redondeados */
+    background-color: #f9f9f9; /* Fondo suave */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Sombra ligera para profundidad */
+    transition: all 0.3s ease-in-out; /* Suaviza cambios al interactuar */
+    outline: none; /* Elimina el contorno azul predeterminado */
+}
+
+/* Efecto al enfocar (clic o tabulación) */
+input[type="text"]:focus,
+textarea:focus {
+    border-color: #5c9b73; /* Borde destacado (color profesional) */
+    background-color: #ffffff; /* Fondo blanco al interactuar */
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2); /* Mayor profundidad */
+}
+
+/* Estilo para placeholder (texto de ayuda) */
+input[type="text"]::placeholder,
+textarea::placeholder {
+    color: #999; /* Color suave */
+    font-style: italic; /* Texto estilizado */
+}
+
+/* Ajustes para pantallas pequeñas */
+@media (max-width: 768px) {
+    input[type="text"],
+    textarea {
+        max-width: 100%; /* Ocupa todo el ancho en móviles */
+        font-size: 14px; /* Ajuste de texto para pantallas pequeñas */
+    }
+}
+
+/* Primera columna (ID) -- asumiendo que es la columna 1 */
+.attendance-table th:nth-child(1),
+.attendance-table td:nth-child(1) {
+    position: sticky;
+    left: 0;
+    background-color: rgb(252, 245, 164); /* Amarillo */
+    z-index: 2;
+    /* Fijar un ancho para que la segunda columna sepa cuánto desplazarse */
+    width: 80px;
+    min-width: 80px;
+    max-width: 80px;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Segunda columna (Nombre) -- asumiendo que es la columna 2 */
+.attendance-table th:nth-child(2),
+.attendance-table td:nth-child(2) {
+    position: sticky;
+    /* Se desplaza lo mismo que mida la 1.ª columna (80px en este caso) */
+    left: 80px; 
+    background-color: #d9eadc; /* Un azul claro, cámbialo al que desees */
+    z-index: 2;
+    width: 230px;    /* Ajusta el ancho a tu gusto */
+    min-width: 180px;
+    max-width: 350px;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Muestra "..." si se corta el nombre */
+}
+
+/* Si deseas que se vea completo al pasar el cursor, puedes añadir: */
+.attendance-table td:nth-child(2):hover {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    background-color: #b7d7bf; /* Azul de hover */
+    color: #ffffff;           /* Letra blanca en el hover */
+    z-index: 3;              /* Para que sobresalga sobre otras columnas */
+}
+
+/* Ajustar el ancho y aspecto del rango de semana (week-range) */
+#week-range {
+    width: 120px;       /* Ajusta a tu gusto (más pequeño que antes) */
+    padding: 3px 5px;   /* Menos padding para que no se vea tan grande */
+    font-size: 14px;    /* Ajusta el tamaño de fuente */
+    margin-left: 5px;   /* Menos separación con el elemento anterior */
+    border-radius: 4px; /* Bordes ligeramente redondeados */
+  }
+  
+  /* Ajustar el ancho y aspecto del buscador (search-input) */
+  #search-input {
+    width: 300px;       /* Un tamaño moderado */
+    padding: 4px 8px;   /* Espaciado interno cómodo */
+    font-size: 14px;    /* Texto un poco más pequeño */
+    border-radius: 4px; /* Bordes redondeados */
+    margin-left: 10px;  /* Espacio para separarlo del elemento anterior */
+  }
+  
+/* 1) Encabezado de la 1.ª y 2.ª columna con z-index muy alto */
+.attendance-table thead th:nth-child(1),
+.attendance-table thead th:nth-child(2) {
+  position: sticky;
+  z-index: 999 !important; /* Encabezado más alto que todo */
+}
+
+/* 2) Celdas del body (td) de la 1.ª y 2.ª columna: un poco menor */
+.attendance-table td:nth-child(1),
+.attendance-table td:nth-child(2) {
+  position: sticky;
+  z-index: 50 !important; /* Menor que 999, así no tapan el encabezado */
+}
+
+/* 3) Encabezado de la última columna, también alto pero un poco menor que col1/col2 si deseas */
+.attendance-table thead th:last-child {
+  position: sticky;
+  z-index: 998 !important; /* Aún por debajo de las col 1 y 2, pero sobre el resto */
+}
+
+/* 4) Celdas del body (td) de la última columna */
+.attendance-table td:last-child {
+  position: sticky;
+  z-index: 49 !important; /* Un poco por debajo de col1 y col2 */
+}
+
+/* 5) El resto de encabezados (thead) que no son col1,2 ni última */
+.attendance-table thead th:not(:nth-child(1)):not(:nth-child(2)):not(:last-child) {
+  position: sticky;
+  z-index: 100 !important; /* Suficiente para ir encima de celdas normales (auto), 
+                              pero por debajo de col1 y col2 (999) */
+}
+
+
+.system-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.system-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.system-card {
+    background: #ffffff;
+    border: 1px solid #c3ddca;
+    border-radius: 10px;
+    padding: 18px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.system-card h3 {
+    margin-top: 0;
+    color: #4f7f60;
+}
+
+.system-inline-form {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.system-inline-form input,
+.system-inline-form select {
+    flex: 1 1 220px;
+}
+
+.system-list {
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid #dfeee3;
+    border-radius: 8px;
+    padding: 10px;
+    background: #f7fbf8;
+}
+
+.system-list ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.department-checklist {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 8px 12px;
+    max-height: 260px;
+    overflow-y: auto;
+    padding: 12px;
+    border: 1px solid #dfeee3;
+    border-radius: 8px;
+    background: #f7fbf8;
+}
+
+.department-checklist label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: normal;
+}
+
+.system-user-summary {
+    white-space: normal;
+    line-height: 1.4;
+}
+
+.system-table-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.helper-text {
+    font-size: 0.9rem;
+    color: #555;
+    margin-top: 8px;
+}
+
+
+.system-inline-form .danger-button {
+    background: #f5f5f5;
+    color: #b94a48;
+    border: 1px solid #d8c1c0;
+}
+
+.system-list.selectable-list li {
+    cursor: pointer;
+    padding: 3px 6px;
+    border-radius: 4px;
+}
+
+.system-list.selectable-list li.selected {
+    background: rgba(91, 147, 111, 0.16);
+    outline: 1px solid #5b936f;
+    font-weight: 600;
+}
+
+.system-inline-form .danger-button:hover {
+    background: #ededed;
+    color: #a33f3d;
+}
+
+
+/* ===== Tema ejecutivo verde RH 2.0 ===== */
+:root {
+    --rh-bg: #e6efe7;
+    --rh-bg-soft: #f2f6f2;
+    --rh-panel: #edf4ee;
+    --rh-panel-strong: #e3eee5;
+    --rh-surface: #f7faf7;
+    --rh-text: #20352a;
+    --rh-muted: #557264;
+    --rh-primary: #2f7d57;
+    --rh-primary-2: #4ea06f;
+    --rh-primary-3: #77ba91;
+    --rh-primary-dark: #245f43;
+    --rh-border: #b6d0bf;
+    --rh-header: linear-gradient(135deg, #4ea06f 0%, #2f7d57 100%);
+    --rh-header-soft: linear-gradient(135deg, #7fc19c 0%, #4f8f69 100%);
+    --rh-shadow: 0 10px 24px rgba(34, 66, 47, 0.10);
+}
+
+body {
+    color: var(--rh-text);
+    background:
+        radial-gradient(circle at top left, rgba(126, 182, 149, 0.16), transparent 28%),
+        linear-gradient(180deg, #eef5ef 0%, #e3ede5 100%);
+}
+
+.container {
+    background: linear-gradient(180deg, rgba(245,250,246,0.96) 0%, rgba(232,241,234,0.98) 100%);
+    border: 1px solid rgba(182, 208, 191, 0.9);
+    box-shadow: 0 18px 40px rgba(43, 79, 58, 0.08);
+}
+
+h1 {
+    color: var(--rh-primary);
+    letter-spacing: 0.4px;
+    margin-bottom: 26px;
+}
+
+h2, h3 {
+    color: var(--rh-primary-dark);
+}
+
+.toolbar {
+    background: var(--rh-header);
+    border: 1px solid #397955;
+    border-radius: 8px;
+    box-shadow: 0 8px 18px rgba(34, 66, 47, 0.14);
+}
+
+.toolbar a {
+    color: #f7fff9;
+    text-shadow: 0 1px 0 rgba(0,0,0,0.12);
+}
+
+.toolbar a:hover {
+    text-decoration: none;
+    opacity: 0.96;
+}
+
+.user-info .info-box,
+.logout-btn,
+.search-container button,
+.export-all-btn,
+.selectors button {
+    background: var(--rh-header);
+    border: 1px solid #397955;
+    color: #fff;
+}
+
+.user-info .info-box:hover,
+.logout-btn:hover,
+.search-container button:hover,
+.export-all-btn:hover,
+.selectors button:hover {
+    background: linear-gradient(135deg, #3f9565 0%, #286c49 100%);
+}
+
+button, .button {
+    background: linear-gradient(180deg, #f5f8f5 0%, #dfe9e2 100%);
+    color: #466153;
+    border: 1px solid #c1d4c7;
+    box-shadow: 0 5px 10px rgba(38, 65, 48, 0.12);
+}
+
+button:hover, .button:hover {
+    background: linear-gradient(180deg, #ffffff 0%, #e7efe9 100%);
+}
+
+.system-card,
+.modal-content,
+.system-list,
+.department-checklist,
+.selectors,
+#reportes-vacaciones,
+#reportes,
+#personal-module,
+#vacations-module,
+#attendance-module,
+#system-module {
+    background: linear-gradient(180deg, rgba(248,251,248,0.97) 0%, rgba(234,241,235,0.98) 100%);
+}
+
+.system-card {
+    border: 1px solid var(--rh-border);
+    box-shadow: var(--rh-shadow);
+}
+
+.system-card h3,
+.helper-text,
+.user-info,
+.version-info {
+    color: var(--rh-muted);
+}
+
+.system-list,
+.department-checklist,
+.selectors,
+input[type="text"],
+input[type="date"],
+input[type="number"],
+input[type="password"],
+select,
+textarea {
+    background: #f7faf7;
+    border-color: var(--rh-border);
+}
+
+input[type="text"],
+input[type="date"],
+input[type="number"],
+input[type="password"],
+select,
+textarea {
+    color: var(--rh-text);
+    box-shadow: inset 0 1px 2px rgba(44, 74, 56, 0.05);
+}
+
+input[type="text"]:focus,
+input[type="date"]:focus,
+input[type="number"]:focus,
+input[type="password"]:focus,
+select:focus,
+textarea:focus {
+    border-color: #5da77b;
+    box-shadow: 0 0 0 3px rgba(93, 167, 123, 0.12);
+}
+
+th,
+.table-container table thead th,
+#attendance-table thead th,
+#personal-table thead th,
+#vacation-table thead th {
+    background: var(--rh-header-soft) !important;
+    color: #f8fff9 !important;
+    border-top: 2px solid #4d8a67 !important;
+    border-bottom: 2px solid #4d8a67 !important;
+    box-shadow: inset 0 -1px 0 rgba(255,255,255,0.18);
+}
+
+th:after,
+thead th::after {
+    background: linear-gradient(to right, #2f7d57, #82c09a) !important;
+}
+
+td {
+    background-color: #edf4ee;
+    border-bottom: 1px solid #c9ddd0;
+}
+
+#personal-table th,
+#vacation-table th {
+    background: var(--rh-header-soft) !important;
+}
+
+#personal-table tbody tr:hover td,
+#vacation-table tbody tr:hover td,
+#attendance-table tbody tr:hover td,
+#personal-table td:nth-child(2):hover {
+    background-color: #4e8f69 !important;
+    color: #f7fff9 !important;
+}
+
+#personal-table th:last-child,
+#personal-table td:last-child,
+#vacation-table th:last-child,
+#vacation-table td:last-child,
+#attendance-table thead th,
+.table-container table thead th {
+    background-color: unset;
+}
+
+.version-info {
+    background: rgba(239, 248, 242, 0.92);
+    border: 1px solid var(--rh-border);
+    box-shadow: 0 6px 14px rgba(38, 65, 48, 0.10);
+    color: var(--rh-primary);
+}
+
+footer {
+    color: #64786c !important;
+}
+
+.system-inline-form .danger-button {
+    background: linear-gradient(180deg, #f6f6f6 0%, #ececec 100%);
+    color: #b24848;
+    border: 1px solid #d6c2c2;
+}
+
+.system-inline-form .danger-button:hover {
+    background: linear-gradient(180deg, #fbfbfb 0%, #ededed 100%);
+}
+
+#personal-table th:nth-child(1),
+#personal-table td:nth-child(1),
+.attendance-table th:last-child,
+.attendance-table td:last-child,
+#attendance-table th:last-child,
+#attendance-table td:last-child {
+    background-color: #e6e3a0;
+}
+
+#personal-table th:nth-child(2),
+#personal-table td:nth-child(2) {
+    background-color: #d8e7da;
+}
+
+.search-container,
+.system-actions {
+    align-items: center;
+}

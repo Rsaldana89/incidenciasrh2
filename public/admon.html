@@ -1,0 +1,1779 @@
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHC BITACORA RH 2.0</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>
+            <img src="Logoheader.png" alt="Logo" class="logo">
+            CHC BITACORA RH 2.0
+            <span class="version-info">Versión 2.0</span> <!-- Agregamos la versión aquí -->
+        </h1>
+        <!-- Barra de Herramientas -->
+        <div class="toolbar">
+            <a href="asistencias.html">
+                <img src="asistencias.png" alt="Asistencias" class="icono-nav">
+                ADMON. ASISTENCIAS
+            </a>
+            <a href="dashboard.html">
+                <img src="vacaciones.png" alt="Vacaciones" class="icono-nav">
+                ADMON. VACACIONES
+            </a>
+            <a href="admon.html">
+                <img src="personal.png" alt="Personal" class="icono-nav">
+                ADMON. PERSONAL
+            </a>
+            <a href="sistema.html" id="system-admin-link" style="display: none;">
+                <img src="sistema.svg" alt="Sistema" class="icono-nav">
+                ADMON. SISTEMA
+            </a>
+        </div>
+
+        <div class="user-info">
+            <p class="info-box">Usuario: <span id="username"></span></p>
+            <p class="info-box">Nombre: <span id="full-name"></span></p>
+            <p class="info-box">Rol: <span id="user-role"></span></p>
+        </div>
+        
+        <!-- Módulo de Administración de Personal -->
+        <div id="personal-management-module" class="module" style="display: none;">
+            <h2>ADMINISTRACION DE PERSONAL</h2>
+
+            <!-- Recuadro de Búsqueda -->
+            <div class="search-container">
+                <input type="text" id="search-input" placeholder="Buscar por nombre o número de empleado">
+                <button onclick="searchEmployee()">Buscar</button>
+
+                <!-- Combobox para seleccionar departamento -->
+                <select id="department-filter" onchange="searchEmployee()">
+                    <option value="">Todos los departamentos</option>
+                </select>
+
+                <!-- Combobox para seleccionar puesto -->
+                <select id="position-filter" onchange="searchEmployee()">
+                    <option value="">Todos los puestos</option> <!-- Opción por defecto -->
+                </select>
+                
+            </div>
+            
+            <div class="table-container">
+                <table id="personal-table">
+                    <style>
+                        #personal-table {
+                            text-transform: uppercase;
+                        }
+                    
+.catalog-help {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #666;
+}
+.catalog-warning {
+    color: #b30000;
+    font-weight: 600;
+}
+select.catalog-warning {
+    border: 2px solid #d9534f;
+    background-color: #fff5f5;
+}
+</style>
+                    
+                    <thead>
+                        <tr>
+                            <th onclick="sortPersonal('employee_number')">ID</th>
+                            <th onclick="sortPersonal('full_name')">NOMBRE COMPLETO</th>
+                            <th onclick="sortPersonal('rfc')">RFC</th>
+                            <th onclick="sortPersonal('curp')">CURP</th>
+                            <th onclick="sortPersonal('nss')">NSS</th>
+                            <th onclick="sortPersonal('email')">CORREO ELECTRÓNICO</th>
+                            <th onclick="sortPersonal('puesto')">PUESTO</th>
+                            <th onclick="sortPersonal('department_name')">DEPARTAMENTO</th>
+                            <th>FECHA DE INGRESO</th>
+                            <th>FECHA DE BAJA</th>
+                            <th>FECHA DE REINGRESO</th>
+                            <th>ANTIGÜEDAD</th>
+                            <th>FECHA DE NACIMIENTO</th>
+                            <th>EDAD</th>
+                            <th>ACCIONES</th>
+                        </tr>
+                    </thead>
+                    
+                    <tbody>
+                        <!-- Las filas se generarán dinámicamente con JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            <button id="add-employee-btn" onclick="openAddEmployeeModal()">Agregar Nuevo Empleado</button>
+            <button onclick="exportToCSV()" style="margin-top: 20px;">Exportar a CSV</button>
+
+            <div id="reportes" style="margin-top: 30px;">
+                <h3>
+                    <img src="excel.png" alt="Icono Excel" style="width: 24px; height: 24px; vertical-align: middle; margin-right: 10px;">
+                    Reportes y Exportación a XLSX
+                </h3>
+                <button onclick="exportToExcel()">Exportar Selección</button>
+                <button onclick="exportCHC()">Exportar CHC</button>
+                <button onclick="exportEYE()">Exportar EYE</button>
+                <button onclick="exportPrenomina()">Generar Prenómina</button>
+                <button onclick="exportBajas()">Generar Bajas</button>
+            </div>
+
+            <!-- Respaldo base de Datos -->
+<div id="respaldo" style="display: none; margin-top: 30px;">
+    <h3>
+        <img src="excel.png" alt="Icono Excel" style="width: 24px; height: 24px; vertical-align: middle; margin-right: 10px;">
+        Respaldo base de Datos
+    </h3>
+    <button id="backup-db-btn" onclick="backupDatabase()">Respaldar Base de Datos</button>
+</div>
+
+<div id="bulk-add-container">
+    <h3>Agregar Empleados Masivo</h3>
+    <textarea id="bulk-add-textarea" rows="10" placeholder="Pega los datos de Excel aquí, incluyendo la fila de títulos. Puedes agregar una columna extra de correo electrónico al final."></textarea>
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <button id="bulk-preview-btn" onclick="previewBulkData()">Vista Previa</button>
+        <button id="bulk-send-btn" onclick="sendBulkData()" style="display: none;">Enviar Datos</button>
+    </div>
+    <div id="bulk-add-preview" style="margin-top: 20px; display: none; border: 1px solid #ccc; padding: 10px; border-radius: 4px;">
+        <h4>Vista Previa</h4>
+        <pre id="preview-content"></pre>
+    </div>
+    <div id="bulk-add-notification" style="margin-top: 20px; display: none;"></div>
+</div>
+
+
+
+
+
+
+
+            
+        </div>
+
+        <div id="modal-overlay" class="modal-overlay"></div>
+
+        <!-- Modal para agregar/editar empleado -->
+        <div id="employee-modal" class="modal-content">
+            <h2 id="modal-title">Agregar Nuevo Empleado</h2>
+            <form id="employee-form">
+                <div class="form-group">
+                    <label for="employee_number">*Número de Empleado:</label>
+                    <input type="text" id="employee_number" name="employee_number" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="full_name">*Nombre Completo:</label>
+                    <input type="text" id="full_name" name="full_name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="rfc">*RFC:</label>
+                    <input type="text" id="rfc" name="rfc" maxlength="13">
+                </div>
+                
+
+                <div class="form-group">
+                    <label for="curp">CURP:</label>
+                    <input type="text" id="curp" name="curp" maxlength="18">
+                </div>
+
+                <div class="form-group">
+                    <label for="nss">NSS:</label>
+                    <input type="text" id="nss" name="nss" maxlength="11">
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Correo electrónico:</label>
+                    <input type="email" id="email" name="email" maxlength="255" placeholder="usuario@dominio.com">
+                </div>
+
+                <div class="form-group">
+                    <label for="puesto">*Puesto:</label>
+                    <select id="puesto" name="puesto" required>
+                        <option value="">Selecciona un puesto</option>
+                    </select>
+                    <small id="puesto-help" class="catalog-help">Solo se pueden seleccionar puestos del catálogo.</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="department_name">*Departamento:</label>
+                    <select id="department_name" name="department_name" required>
+                        <option value="">Selecciona un departamento</option>
+                    </select>
+                    <small id="department-help" class="catalog-help">Solo se pueden seleccionar departamentos del catálogo.</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="start_date">*Fecha de Ingreso:</label>
+                    <input type="date" id="start_date" name="start_date" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="fecha_baja">Fecha de Baja:</label>
+                    <input type="date" id="fecha_baja" name="fecha_baja">
+                </div>
+
+                <div class="form-group">
+                    <label for="fecha_reingreso">Fecha de Reingreso:</label>
+                    <input type="date" id="fecha_reingreso" name="fecha_reingreso">
+                </div>
+
+                <div class="form-buttons">
+                    <button type="submit" id="save-employee-btn">Guardar</button>
+                    <button type="button" onclick="closeEmployeeModal()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+
+
+
+        <a id="logout-btn" class="logout-btn">Cerrar Sesión</a>
+    </div>
+
+    <footer style="text-align: center; margin-top: 50px; font-size: 14px; color: gray;">
+        <p>&copy; 2024-2026 Cremería Hermanos Coronel. Todos los derechos reservados.</p>
+    </footer>
+    
+
+
+  
+    
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.9/xlsx.full.min.js"></script>
+
+
+    <script>
+function toggleSystemAdminLink(role) {
+    const systemLink = document.getElementById('system-admin-link');
+    if (systemLink) {
+        systemLink.style.display = role === 'admin' ? 'inline-flex' : 'none';
+    }
+}
+
+
+document.addEventListener('DOMContentLoaded', function () {
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+        alert('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+        window.location.href = '/login.html';
+        return;
+    }
+
+    // Realiza una solicitud para verificar si el token sigue siendo válido
+    fetch('/dashboard', {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
+    .then(response => {
+        if (response.status === 401) { // Si el token ha expirado
+            throw new Error('Sesión expirada');
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Configuración de la sesión (como mostrar el usuario)
+        document.getElementById('username').textContent = data.username;
+        document.getElementById('full-name').textContent = data.full_name;
+        document.getElementById('user-role').textContent = data.role;
+            toggleSystemAdminLink(data.role);
+    })
+    .catch(error => {
+        console.error('Error de autenticación:', error);
+        alert('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+        localStorage.removeItem('token');
+        window.location.href = '/login.html';
+    });
+});
+
+        let personalData = []; // Variable global para almacenar los datos del personal
+        let currentSearchQuery = '';
+        let currentDepartmentFilter = '';
+        let currentSortCriteria = '';
+        let currentSortOrder = 'asc';
+        
+        let ALL_DEPARTMENTS = [];
+        let ALL_POSITIONS = [];
+        let CURRENT_ALLOWED_DEPARTMENTS = [];
+
+        function uniqueCatalogValues(values) {
+            return [...new Set((values || []).map(value => (value || '').trim()).filter(Boolean))];
+        }
+
+        function loadPositions() {
+    fetch('puestos.json')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Error al cargar los puestos');
+            }
+            return response.json();
+        })
+        .then(data => {
+            ALL_POSITIONS = uniqueCatalogValues(data.positions || []);
+            populatePositionFilter();
+            populatePositionModalSelect();
+        })
+        .catch(error => console.error('Error al cargar los puestos:', error));
+}
+
+function populatePositionFilter() {
+    const selectElement = document.getElementById('position-filter');
+    if (!selectElement) return;
+
+    const currentValue = selectElement.value;
+    selectElement.innerHTML = '';
+
+    const allOption = document.createElement('option');
+    allOption.value = '';
+    allOption.textContent = 'Todos los puestos';
+    selectElement.appendChild(allOption);
+
+    const positions = uniqueCatalogValues([
+        ...ALL_POSITIONS,
+        ...personalData.map(emp => emp.puesto).filter(Boolean)
+    ]);
+
+    positions.forEach(pos => {
+        const option = document.createElement('option');
+        option.value = pos;
+        option.textContent = pos;
+        selectElement.appendChild(option);
+    });
+
+    if (currentValue && positions.includes(currentValue)) {
+        selectElement.value = currentValue;
+    }
+}
+
+function populatePositionModalSelect(selectedValue = '', forceInvalid = false) {
+    const select = document.getElementById('puesto');
+    const help = document.getElementById('puesto-help');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">Selecciona un puesto</option>';
+
+    ALL_POSITIONS.forEach(pos => {
+        const option = document.createElement('option');
+        option.value = pos;
+        option.textContent = pos;
+        select.appendChild(option);
+    });
+
+    const selected = (selectedValue || '').trim();
+    const exists = selected && ALL_POSITIONS.includes(selected);
+
+    select.classList.remove('catalog-warning');
+    if (help) {
+        help.textContent = 'Solo se pueden seleccionar puestos del catálogo.';
+        help.classList.remove('catalog-warning');
+    }
+
+    if (selected && exists) {
+        select.value = selected;
+        return;
+    }
+
+    if (selected && forceInvalid) {
+        const invalidOption = document.createElement('option');
+        invalidOption.value = '';
+        invalidOption.textContent = `${selected} (ya no existe en catálogo)`;
+        invalidOption.selected = true;
+        select.insertBefore(invalidOption, select.firstChild.nextSibling);
+        select.classList.add('catalog-warning');
+        if (help) {
+            help.textContent = `El puesto actual "${selected}" no existe en catálogo. Selecciona uno válido para guardar.`;
+            help.classList.add('catalog-warning');
+        }
+    }
+}
+
+function loadDepartments() {
+    fetch('departamentos.json')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Error al cargar los departamentos');
+            }
+            return response.json();
+        })
+        .then(data => {
+            ALL_DEPARTMENTS = uniqueCatalogValues(data.departments || []);
+            populateDepartmentFilter();
+            populateDepartmentModalSelect();
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+function populateDepartmentFilter() {
+    const selectElement = document.getElementById('department-filter');
+    if (!selectElement) return;
+
+    const currentValue = selectElement.value;
+    selectElement.innerHTML = '';
+
+    const allOption = document.createElement('option');
+    allOption.value = '';
+    allOption.textContent = 'Todos los departamentos';
+    selectElement.appendChild(allOption);
+
+    const departments = uniqueCatalogValues([
+        ...ALL_DEPARTMENTS,
+        ...personalData.map(emp => emp.department_name).filter(Boolean)
+    ]);
+
+    departments.forEach(dept => {
+        const option = document.createElement('option');
+        option.value = dept;
+        option.textContent = dept;
+        selectElement.appendChild(option);
+    });
+
+    if (currentValue && departments.includes(currentValue)) {
+        selectElement.value = currentValue;
+    }
+}
+
+function getAllowedDepartmentsForModal() {
+    if (CURRENT_ALLOWED_DEPARTMENTS.includes('Todos')) {
+        return [...ALL_DEPARTMENTS];
+    }
+    return CURRENT_ALLOWED_DEPARTMENTS.filter(dept => ALL_DEPARTMENTS.includes(dept));
+}
+
+function populateDepartmentModalSelect(selectedValue = '', forceInvalid = false) {
+    const select = document.getElementById('department_name');
+    const help = document.getElementById('department-help');
+    if (!select) return;
+
+    const modalDepartments = uniqueCatalogValues(getAllowedDepartmentsForModal());
+    select.innerHTML = '<option value="">Selecciona un departamento</option>';
+
+    modalDepartments.forEach(dept => {
+        const option = document.createElement('option');
+        option.value = dept;
+        option.textContent = dept;
+        select.appendChild(option);
+    });
+
+    const selected = (selectedValue || '').trim();
+    const exists = selected && modalDepartments.includes(selected);
+
+    select.classList.remove('catalog-warning');
+    if (help) {
+        help.textContent = 'Solo se pueden seleccionar departamentos del catálogo.';
+        help.classList.remove('catalog-warning');
+    }
+
+    if (selected && exists) {
+        select.value = selected;
+        return;
+    }
+
+    if (selected && forceInvalid) {
+        const invalidOption = document.createElement('option');
+        invalidOption.value = '';
+        invalidOption.textContent = `${selected} (ya no existe en catálogo o no tienes acceso)`;
+        invalidOption.selected = true;
+        select.insertBefore(invalidOption, select.firstChild.nextSibling);
+        select.classList.add('catalog-warning');
+        if (help) {
+            help.textContent = `El departamento actual "${selected}" no existe en catálogo o no está dentro de tus permisos. Selecciona uno válido para guardar.`;
+            help.classList.add('catalog-warning');
+        }
+    }
+}
+
+function refreshCatalogFilters() {
+    populateDepartmentFilter();
+    populatePositionFilter();
+    populateDepartmentModalSelect();
+    populatePositionModalSelect();
+}
+
+// Llamar a loadDepartments cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', function () {
+    loadDepartments(); // Cargar los departamentos desde el JSON
+    loadPositions();
+    // Resto del código de inicialización
+    const token = localStorage.getItem('token');
+    if (!token) {
+        alert('No estás autenticado. Por favor, inicia sesión.');
+        window.location.href = '/login.html';
+    } else {
+        // Carga de usuario y privilegios
+        fetch('/dashboard', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('username').textContent = data.username;
+            document.getElementById('full-name').textContent = data.full_name;
+            document.getElementById('user-role').textContent = data.role;
+            toggleSystemAdminLink(data.role);
+
+            if (data.username === 'managerchc') {
+                document.getElementById('respaldo').style.display = 'block';
+            } else {
+                document.getElementById('respaldo').style.display = 'none';
+            }
+
+            return fetch('/privilegios.json')
+                .then(response => response.json())
+                .then(privileges => {
+                    const userPrivileges = privileges.roles[data.role][data.username];
+                    if (userPrivileges && userPrivileges.departments) {
+                        showPersonalManagement(userPrivileges.departments);
+                    } else {
+                        console.error('No se encontraron privilegios para este usuario.');
+                    }
+                });
+        })
+        .catch(error => console.error('Error al obtener la información del usuario:', error));
+    }
+
+    // Permitir búsqueda con Enter
+    document.getElementById('search-input').addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+            searchEmployee();
+        }
+    });
+});
+
+
+// Función para calcular la antigüedad en años y meses
+function calcularAntiguedad(fechaIngreso, fechaReingreso) {
+    const fechaBase = fechaReingreso || fechaIngreso;
+    const fechaInicio = new Date(fechaBase);
+    const fechaActual = new Date();
+
+    let años = fechaActual.getFullYear() - fechaInicio.getFullYear();
+    let meses = fechaActual.getMonth() - fechaInicio.getMonth();
+
+    // Ajuste en caso de que el mes de inicio aún no haya pasado en el año actual
+    if (meses < 0) {
+        años--;
+        meses += 12;
+    }
+
+    return `${años} años y ${meses} meses`;
+}
+
+
+// Llenar dinámicamente los selectores con la lista de departamentos
+// Llamar a loadDepartments cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', function () {
+    loadDepartments(); // Cargar los departamentos desde el JSON
+
+    // Resto del código de inicialización
+    const token = localStorage.getItem('token');
+    if (!token) {
+        alert('No estás autenticado. Por favor, inicia sesión.');
+        window.location.href = '/login.html';
+    } else {
+        // Carga de usuario y privilegios
+        fetch('/dashboard', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('username').textContent = data.username;
+            document.getElementById('full-name').textContent = data.full_name;
+            document.getElementById('user-role').textContent = data.role;
+            toggleSystemAdminLink(data.role);
+
+            if (data.username === 'managerchc') {
+                document.getElementById('respaldo').style.display = 'block';
+            } else {
+                document.getElementById('respaldo').style.display = 'none';
+            }
+
+            return fetch('/privilegios.json')
+                .then(response => response.json())
+                .then(privileges => {
+                    const userPrivileges = privileges.roles[data.role][data.username];
+                    if (userPrivileges && userPrivileges.departments) {
+                        showPersonalManagement(userPrivileges.departments);
+                    } else {
+                        console.error('No se encontraron privilegios para este usuario.');
+                    }
+                });
+        })
+        .catch(error => console.error('Error al obtener la información del usuario:', error));
+    }
+
+    // Permitir búsqueda con Enter
+    document.getElementById('search-input').addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+            searchEmployee();
+        }
+    });
+
+    
+    // Refrescar filtros y catálogos visibles
+    refreshCatalogFilters();
+
+    // Permitir búsqueda con Enter
+    document.getElementById('search-input').addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+            searchEmployee();
+        }
+    });
+});
+
+
+
+function showPersonalManagement(allowedDepartments = CURRENT_ALLOWED_DEPARTMENTS) {
+    CURRENT_ALLOWED_DEPARTMENTS = Array.isArray(allowedDepartments) ? [...allowedDepartments] : [];
+    fetch('/admin/personal', {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Error al obtener los datos del personal');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (CURRENT_ALLOWED_DEPARTMENTS.includes("Todos")) {
+            personalData = data;
+        } else {
+            personalData = data.filter(emp => CURRENT_ALLOWED_DEPARTMENTS.includes(emp.department_name));
+        }
+
+        refreshCatalogFilters();
+
+        // Ordenar los datos por ID y colocar el departamento "Baja" al final
+        personalData.sort((a, b) => {
+            if (a.department_name === 'Baja' && b.department_name !== 'Baja') return 1;
+            if (a.department_name !== 'Baja' && b.department_name === 'Baja') return -1;
+            return a.employee_number - b.employee_number; // Ordenar por ID
+        });
+
+        // Renderizar la tabla con los datos ordenados
+        renderPersonalTable(personalData);
+        document.getElementById('personal-management-module').style.display = 'block';
+    })
+    .catch(error => {
+        console.error('Error al cargar los datos del personal:', error);
+        alert('Ocurrió un error al cargar los datos del personal. Intenta nuevamente.');
+    });
+}
+
+
+
+
+function searchEmployee() {
+    const searchQuery = document.getElementById('search-input').value.trim().toLowerCase();
+    const selectedDepartment = document.getElementById('department-filter').value;
+    const selectedPosition = document.getElementById('position-filter').value; // Nuevo filtro de puesto
+
+    // Función para normalizar el número de empleado (5 dígitos con ceros al inicio)
+    const normalizeEmployeeNumber = (number) => number.toString().padStart(5, '0');
+
+    const filteredData = personalData.filter(emp => {
+        // Normalizar el número de empleado del registro
+        const employeeNumberNormalized = normalizeEmployeeNumber(emp.employee_number);
+
+        // Comparar nombre o números normalizados
+        const matchesSearchQuery = emp.full_name.toLowerCase().includes(searchQuery) || 
+                                   employeeNumberNormalized.includes(normalizeEmployeeNumber(searchQuery)) ||
+                                   emp.employee_number.toString().includes(searchQuery);
+
+        const matchesDepartment = selectedDepartment === '' || emp.department_name === selectedDepartment;
+        const matchesPosition = selectedPosition === '' || emp.puesto === selectedPosition;
+
+        return matchesSearchQuery && matchesDepartment && matchesPosition;
+    });
+
+    renderPersonalTable(filteredData);
+}
+
+
+
+function extractBirthDateFromRFC(rfc) {
+    if (!rfc || rfc.length < 10) {
+        return null; // No se puede extraer si no tiene longitud suficiente
+    }
+
+    // Tomar los 6 dígitos que vienen después de los primeros 4 caracteres.
+    // Ejemplo RFC: ABCDYYMMDD...
+    const datePart = rfc.substring(4, 10); // del caracter 4 al 9 (0-based)
+    const yearStr = datePart.substring(0, 2);
+    const monthStr = datePart.substring(2, 4);
+    const dayStr = datePart.substring(4, 6);
+
+    // Convertir a números
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10);
+    const day = parseInt(dayStr, 10);
+
+    // Validar fecha sencilla (no super exhaustivo, pero básico)
+    if (isNaN(year) || isNaN(month) || isNaN(day)) {
+        return null;
+    }
+
+    // Asumiremos años entre 1900 y 2099
+    const fullYear = year >= 0 && year <= 99 ? (year < 50 ? 2000 + year : 1900 + year) : null;
+    if (!fullYear || month < 1 || month > 12 || day < 1 || day > 31) {
+        return null; 
+    }
+
+    // Crear objeto Date
+    const birthDate = new Date(fullYear, month - 1, day);
+    if (isNaN(birthDate.getTime())) {
+        return null;
+    }
+
+    return birthDate;
+}
+
+function calcularEdadDesdeFechaNacimiento(birthDate) {
+    if (!birthDate || isNaN(birthDate.getTime())) {
+        return "N/D";
+    }
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+    }
+    return `${age} años`;
+}
+
+function renderPersonalTable(data = personalData) {
+    const tbody = document.querySelector('#personal-table tbody');
+    tbody.innerHTML = '';
+
+    const role = localStorage.getItem('role');
+
+    data.forEach(emp => {
+        // Extraer fecha de nacimiento del RFC
+        const birthDateFromRFC = extractBirthDateFromRFC(emp.rfc);
+        const fechaNacimiento = birthDateFromRFC ? formatDate(birthDateFromRFC) : 'N/D';
+        const edad = birthDateFromRFC ? calcularEdadDesdeFechaNacimiento(birthDateFromRFC) : 'N/D';
+
+        const antiguedad = calcularAntiguedad(emp.start_date, emp.fecha_reingreso); 
+        const isValidDepartment = ALL_DEPARTMENTS.includes(emp.department_name);
+        const isValidPosition = !emp.puesto || ALL_POSITIONS.includes(emp.puesto);
+        const isBaja = emp.department_name.toLowerCase() === 'baja'; // Verificar si es "baja"
+
+        let row = `
+            <tr>
+                <td>${emp.employee_number.toString().padStart(5, '0')}</td>
+                <td>${emp.full_name}</td>
+                <td>${emp.rfc || ''}</td>
+                <td>${emp.curp || ''}</td>
+                <td>${emp.nss || ''}</td>
+                <td>${emp.email || ''}</td>
+                <td class="${isValidPosition ? '' : 'invalid-position'}">${emp.puesto || ''}</td>
+                <td class="${isBaja ? 'department-baja' : isValidDepartment ? '' : 'invalid-department'}">${emp.department_name}</td>
+                <td>${formatDate(emp.start_date)}</td>
+                <td>${emp.fecha_baja ? formatDate(emp.fecha_baja) : ''}</td>
+                <td>${emp.fecha_reingreso ? formatDate(emp.fecha_reingreso) : ''}</td>
+                <td>${antiguedad}</td>
+                <td>${fechaNacimiento}</td> <!-- Fecha de nacimiento desde RFC o N/D -->
+                <td>${edad}</td> <!-- Edad calculada desde RFC o N/D -->
+                <td>`;
+
+        if (role === 'admin') {
+            row += `
+                <button class="edit-btn" onclick="editEmployee(${emp.employee_number})">Editar</button>
+                <button class="baja-btn" onclick="confirmBaja(${emp.employee_number})">Baja</button>`;
+        }
+
+        row += `</td></tr>`;
+        tbody.insertAdjacentHTML('beforeend', row);
+    });
+}
+
+
+
+function sortPersonal(criteria) {
+    const sortOrder = localStorage.getItem('currentSortOrder') === 'asc' ? 'desc' : 'asc';
+    localStorage.setItem('currentSortCriteria', criteria);
+    localStorage.setItem('currentSortOrder', sortOrder);
+
+    personalData.sort((a, b) => {
+        if (a.department_name === 'Baja' && b.department_name !== 'Baja') return 1;
+        if (a.department_name !== 'Baja' && b.department_name === 'Baja') return -1;
+
+        const valueA = a[criteria] || ''; // Tratar valores nulos como cadenas vacías
+        const valueB = b[criteria] || '';
+
+        if (valueA < valueB) return sortOrder === 'asc' ? -1 : 1;
+        if (valueA > valueB) return sortOrder === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    renderPersonalTable(personalData);
+}
+
+
+
+
+
+
+        function formatDate(dateString) {
+             const date = new Date(dateString);
+             const day = String(date.getDate()).padStart(2, '0');
+             const month = String(date.getMonth() + 1).padStart(2, '0'); // Los meses en JavaScript van de 0 a 11
+             const year = date.getFullYear();
+             return `${day}/${month}/${year}`;
+
+
+        }
+
+        document.getElementById('employee-form').addEventListener('submit', function (event) {
+    event.preventDefault();
+
+    const selectedPosition = document.getElementById('puesto').value;
+    const selectedDepartment = document.getElementById('department_name').value;
+
+    if (!selectedPosition || !ALL_POSITIONS.includes(selectedPosition)) {
+        alert('Debes seleccionar un puesto válido del catálogo.');
+        document.getElementById('puesto').focus();
+        return;
+    }
+
+    const modalDepartments = getAllowedDepartmentsForModal();
+
+    if (!selectedDepartment || !modalDepartments.includes(selectedDepartment)) {
+        alert('Debes seleccionar un departamento válido del catálogo.');
+        document.getElementById('department_name').focus();
+        return;
+    }
+
+    const employeeData = {
+        employee_number: document.getElementById('employee_number').value,
+        full_name: document.getElementById('full_name').value,
+        rfc: document.getElementById('rfc').value || null,
+        curp: document.getElementById('curp').value || null,
+        nss: document.getElementById('nss').value || null,
+        email: document.getElementById('email').value || null,
+        puesto: document.getElementById('puesto').value || null,
+        department_name: document.getElementById('department_name').value,
+        start_date: document.getElementById('start_date').value,
+        fecha_baja: document.getElementById('fecha_baja').value || null,
+        fecha_reingreso: document.getElementById('fecha_reingreso').value || null,
+    };
+
+    const isAdding = document.getElementById('modal-title').textContent === 'Agregar Nuevo Empleado';
+    const url = isAdding
+        ? '/admin/personal'
+        : `/admin/personal/${employeeData.employee_number}`;
+    const method = isAdding ? 'POST' : 'PUT';
+
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify(employeeData),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error('Error:', data.error);
+            alert(`Error: ${data.error}`);
+        } else {
+            console.log(isAdding ? 'Empleado agregado correctamente' : 'Empleado actualizado correctamente');
+            alert(isAdding ? 'Empleado agregado correctamente' : 'Empleado actualizado correctamente');
+
+            // 1. Guardar la búsqueda actual:
+            const currentSearch = document.getElementById('search-input').value;
+
+            // 2. Actualizar la tabla
+            fetchUpdatedPersonalData();
+
+            // 3. Con un ligero retardo, restaurar la búsqueda y llamar a searchEmployee().
+            //    (Sólo si había algo escrito en el cuadro)
+            setTimeout(() => {
+                document.getElementById('search-input').value = currentSearch;
+                if (currentSearch.trim() !== "") {
+                    searchEmployee();
+                }
+            }, 300);
+
+            // 4. Cerrar el modal al final
+            closeEmployeeModal();
+        }
+    })
+    .catch(error => console.error('Error al guardar empleado:', error));
+});
+
+
+        
+        function convertToDateInputFormat(dateString) {
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // Los meses van de 0 a 11
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`; // Formato esperado por input[type="date"]
+}
+
+
+        function editEmployee(employee_number) {
+            fetch(`/admin/personal/${employee_number}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            })
+            .then(response => response.json())
+            .then(employee => {
+                openEditEmployeeModal(employee);
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function openAddEmployeeModal() {
+            document.getElementById('employee-form').reset();
+            document.getElementById('modal-title').textContent = 'Agregar Nuevo Empleado';
+            document.getElementById('employee_number').disabled = false;
+            populatePositionModalSelect();
+            populateDepartmentModalSelect();
+            document.getElementById('employee-modal').style.display = 'block';
+            document.getElementById('modal-overlay').style.display = 'block';
+        }
+
+        function openEditEmployeeModal(employee) {
+    document.getElementById('employee_number').value = employee.employee_number;
+    document.getElementById('full_name').value = employee.full_name;
+    document.getElementById('rfc').value = employee.rfc || '';
+    document.getElementById('curp').value = employee.curp || '';
+    document.getElementById('nss').value = employee.nss || '';
+    document.getElementById('email').value = employee.email || '';
+    populatePositionModalSelect(employee.puesto || '', true);
+    populateDepartmentModalSelect(employee.department_name || '', true);
+
+    // Asignar la fecha de ingreso, fecha de nacimiento y fecha de baja
+    document.getElementById('start_date').value = convertToDateInputFormat(employee.start_date);
+    document.getElementById('fecha_baja').value = employee.fecha_baja ? convertToDateInputFormat(employee.fecha_baja) : '';
+
+    // Verificar si el empleado está en "Baja"
+    if (employee.department_name === 'Baja') {
+        // Preseleccionar la fecha de reingreso con la fecha actual
+        document.getElementById('fecha_reingreso').value = new Date().toISOString().split('T')[0];
+    } else {
+        document.getElementById('fecha_reingreso').value = employee.fecha_reingreso ? convertToDateInputFormat(employee.fecha_reingreso) : '';
+    }
+
+    document.getElementById('modal-title').textContent = 'Editar Empleado';
+    document.getElementById('employee_number').disabled = true;
+    document.getElementById('employee-modal').style.display = 'block';
+    document.getElementById('modal-overlay').style.display = 'block';
+}
+
+
+
+function closeEmployeeModal() {
+    document.getElementById('employee-modal').style.display = 'none';
+    document.getElementById('modal-overlay').style.display = 'none';
+
+}
+
+function confirmBaja(employee_number) {
+    // Confirmar si el usuario desea dar de baja al empleado
+    const confirmBaja = confirm("¿Realmente quieres dar de baja a este empleado?");
+    if (confirmBaja) {
+        // Solicitar la fecha de baja al usuario
+        const fechaBaja = prompt("Ingresa la fecha de baja (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
+        
+        // Validar que la fecha no esté vacía y sea válida
+        if (fechaBaja && !isNaN(new Date(fechaBaja).getTime())) {
+            updateEmployeeToBaja(employee_number, fechaBaja);
+        } else {
+            alert("Fecha inválida. La acción de baja ha sido cancelada.");
+        }
+    }
+}
+
+
+
+
+function updateEmployeeToBaja(employee_number, fecha_baja) {
+    // Validar la fecha ingresada antes de enviar la solicitud
+    if (!fecha_baja || isNaN(new Date(fecha_baja).getTime())) {
+        alert("La fecha de baja es inválida. Por favor, ingresa una fecha válida.");
+        return;
+    }
+
+    fetch(`/admin/personal/baja/${employee_number}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ 
+            department_name: 'Baja', 
+            fecha_baja: fecha_baja // Asegúrate de enviar la fecha válida ingresada
+        })
+    })
+    .then(response => {
+        // Verificar el estado de la respuesta
+        if (!response.ok) {
+            throw new Error('Error al actualizar el empleado. Verifica los datos.');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.error) {
+            console.error('Error:', data.error);
+            alert(`Error al dar de baja al empleado: ${data.error}`);
+        } else {
+            // Refrescar los datos de la tabla después de la actualización
+            fetchUpdatedPersonalData(); // Función que recarga la tabla
+            alert('Empleado dado de baja correctamente.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Hubo un error al intentar dar de baja al empleado. Por favor, intenta nuevamente.');
+    });
+}
+
+
+
+
+        function exportToCSV() {
+            const headers = ['Departamento', 'Codigo', 'Nombre', 'RFC', 'CURP', 'Correo Electrónico', 'Puesto', 'Alta', 'Baja', 'Reingreso', 'NSS'];
+            
+            const rows = personalData.map(emp => [
+                emp.department_name,
+                emp.employee_number.toString().padStart(5, '0'),
+                emp.full_name,
+                emp.rfc || '',
+                emp.curp || '',
+                emp.email || '',
+                emp.puesto || '',
+                formatDate(emp.start_date),
+                emp.fecha_baja ? formatDate(emp.fecha_baja) : '',
+                emp.fecha_reingreso ? formatDate(emp.fecha_reingreso) : '',
+                emp.nss || ''
+            ]);
+
+            const bom = '\uFEFF'; // UTF-8 BOM para soportar caracteres especiales en Excel
+            const csvContent = bom + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+            const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csvContent);
+
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+
+            const fileName = prompt("¿Con qué nombre deseas guardar el archivo CSV?", "personal.csv");
+            if (fileName) {
+                link.setAttribute("download", fileName);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+
+        document.getElementById('logout-btn').addEventListener('click', function() {
+            localStorage.removeItem('token');
+            window.location.href = '/login.html';
+        });
+
+        const token = localStorage.getItem('token');
+
+        if (!token) {
+            alert('No estás autenticado. Por favor, inicia sesión.');
+            window.location.href = '/login.html';
+        } else {
+            fetch('/dashboard', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('username').textContent = data.username;
+                document.getElementById('full-name').textContent = data.full_name;
+                document.getElementById('user-role').textContent = data.role;
+            toggleSystemAdminLink(data.role);
+
+                localStorage.setItem('role', data.role);
+                
+                // Mostrar elementos solo para el rol admin
+            if (data.role === 'admin') {
+                // Mostrar botón de agregar empleado
+                document.getElementById('add-employee-btn').style.display = 'inline-block';
+
+                // Mostrar los botones de carga masiva
+                document.getElementById('bulk-add-container').style.display = 'block';
+
+                // Mostrar botones de editar y baja
+                const editButtons = document.querySelectorAll('.edit-btn');
+                const bajaButtons = document.querySelectorAll('.baja-btn');
+
+                editButtons.forEach(button => button.style.display = 'inline');
+                bajaButtons.forEach(button => button.style.display = 'inline');
+            } else {
+                // Ocultar botón de agregar empleado
+                document.getElementById('add-employee-btn').style.display = 'none';
+
+                // Ocultar los botones de carga masiva
+                document.getElementById('bulk-add-container').style.display = 'none';
+
+                // Ocultar botones de editar y baja
+                const editButtons = document.querySelectorAll('.edit-btn');
+                const bajaButtons = document.querySelectorAll('.baja-btn');
+
+                editButtons.forEach(button => button.style.display = 'none');
+                bajaButtons.forEach(button => button.style.display = 'none');
+            }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+        function importFromCSV(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const csv = e.target.result;
+            const rows = csv.split('\n').map(row => row.split(','));
+
+            // Procesar los datos del CSV y enviarlos al backend
+            const employees = rows.slice(1).map(row => ({
+                employee_number: row[0].trim(),
+                full_name: row[1].trim(),
+                department_name: row[2].trim(),
+                start_date: row[3].trim(),
+                rfc: row[5].trim(),
+                curp: row[6].trim(),
+                nss: row[7].trim(),
+                puesto: row[8].trim(),
+                email: (row[9] || '').trim() || null
+            }));
+
+            // Enviar al backend
+            fetch('/admin/import-csv', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ employees })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('Error al importar empleados: ' + data.error);
+                } else {
+                    alert('Empleados importados correctamente');
+                    showPersonalManagement(CURRENT_ALLOWED_DEPARTMENTS); // Actualizar la tabla
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        };
+
+        reader.readAsText(file);
+    }
+}
+
+function exportToExcel() {
+    // Obtener la tabla actual
+    const table = document.getElementById('personal-table');
+
+    // Crear un array vacío para almacenar los datos filtrados (sin la columna de acciones)
+    let data = [];
+    
+    // Recorrer las filas de la tabla (incluyendo encabezado)
+    for (let i = 0, row; row = table.rows[i]; i++) {
+        let rowData = [];
+        for (let j = 0, col; col = row.cells[j]; j++) {
+            // Omite la última columna que es la de "Acciones" (índice 13), pero incluye "Fecha de Baja" (índice 8)
+            if (j !== table.rows[0].cells.length - 1) {
+                let cellValue = col.innerText;
+                
+                // Si estamos en la columna de "Número de Empleado" (columna 0), formatearlo a 5 dígitos
+                if (j === 0) {
+                    cellValue = cellValue.padStart(5, '0'); // Rellena con ceros a la izquierda
+                }
+                
+                rowData.push(cellValue);
+            }
+        }
+        data.push(rowData); // Agrega la fila filtrada a los datos
+    }
+
+    // Convertir los datos a una hoja de trabajo de Excel
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Reporte Personal');
+
+    // Generar el archivo Excel
+    XLSX.writeFile(wb, 'reporte_personal.xlsx');
+}
+
+function exportCHC() {
+    // Asegurar que el filtro de departamentos esté en "Todos los departamentos"
+    document.getElementById('department-filter').value = ""; // "" selecciona "Todos los departamentos"
+    searchEmployee(); // Actualizar la tabla para mostrar todos los departamentos
+
+    // Obtener la tabla actual
+    const table = document.getElementById('personal-table');
+
+    // Crear un array vacío para almacenar los datos filtrados (excluyendo empleados con departamento que empieza con EYE)
+    let data = [];
+
+    // Obtener los encabezados de la tabla (sin el encabezado de la columna de acciones)
+    let headers = [];
+    for (let j = 0; j < table.rows[0].cells.length; j++) {
+        if (j !== table.rows[0].cells.length - 1) { // Omitir la columna de "Acciones"
+            headers.push(table.rows[0].cells[j].innerText);
+        }
+    }
+    data.push(headers); // Agregar los encabezados como la primera fila
+
+    // Recorrer las filas de la tabla (excluyendo el encabezado)
+    for (let i = 1, row; row = table.rows[i]; i++) {
+        let rowData = [];
+        let department = '';
+
+        for (let j = 0, col; col = row.cells[j]; j++) {
+            // Omite la columna de "Acciones" (índice 13)
+            if (j !== table.rows[0].cells.length - 1) {
+                let cellValue = col.innerText;
+
+                // Si estamos en la columna de "Departamento" (índice 6), capturamos su valor
+                if (j === 7) {
+                    department = cellValue;
+                }
+
+                // Si estamos en la columna de "Número de Empleado" (columna 0), formatearlo a 5 dígitos
+                if (j === 0) {
+                    cellValue = cellValue.padStart(5, '0');
+                }
+
+                rowData.push(cellValue);
+            }
+        }
+
+        // Verificar si el departamento NO empieza con "EYE" (case-insensitive)
+        // Incluye empleados con el departamento "Baja"
+        if (!department.toUpperCase().startsWith('EYE')) {
+            data.push(rowData); // Agregar solo las filas que cumplen la condición
+        }
+    }
+
+    if (data.length === 1) { // Si no hay filas adicionales, solo están los encabezados
+        alert("No hay empleados fuera del departamento 'EYE' para exportar.");
+        return;
+    }
+
+    // Crear el archivo Excel solo con los empleados que NO tienen departamentos que empiezan con "EYE"
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Reporte CHC');
+
+    // Generar el archivo Excel
+    XLSX.writeFile(wb, 'reporte_CHC.xlsx');
+}
+
+
+
+
+function exportEYE() {
+    // Asegurar que el filtro de departamentos esté en "Todos los departamentos"
+    document.getElementById('department-filter').value = ""; // "" selecciona "Todos los departamentos"
+    searchEmployee(); // Actualizar la tabla para mostrar todos los departamentos
+
+    // Obtener la tabla actual
+    const table = document.getElementById('personal-table');
+
+    // Crear un array vacío para almacenar los datos filtrados (solo los empleados con departamento que empieza con EYE)
+    let data = [];
+
+    // Obtener los encabezados de la tabla (sin el encabezado de la columna de acciones)
+    let headers = [];
+    for (let j = 0; j < table.rows[0].cells.length; j++) {
+        if (j !== table.rows[0].cells.length - 1) { // Omitir la columna de "Acciones"
+            headers.push(table.rows[0].cells[j].innerText);
+        }
+    }
+    data.push(headers); // Agregar los encabezados como la primera fila
+
+    // Recorrer las filas de la tabla (excluyendo el encabezado)
+    for (let i = 1, row; row = table.rows[i]; i++) {
+        let rowData = [];
+        let department = '';
+
+        for (let j = 0, col; col = row.cells[j]; j++) {
+            // Omite la columna de "Acciones" (índice 13)
+            if (j !== table.rows[0].cells.length - 1) {
+                let cellValue = col.innerText;
+
+                // Si estamos en la columna de "Departamento" (índice 6), capturamos su valor
+                if (j === 7) {
+                    department = cellValue;
+                }
+
+                // Si estamos en la columna de "Número de Empleado" (columna 0), formatearlo a 5 dígitos
+                if (j === 0) {
+                    cellValue = cellValue.padStart(5, '0');
+                }
+
+                rowData.push(cellValue);
+            }
+        }
+
+        // Verificar si el departamento empieza con "EYE" (case-insensitive)
+        if (department.toUpperCase().startsWith('EYE')) {
+            data.push(rowData); // Agregar solo las filas que cumplen la condición
+        }
+    }
+
+    if (data.length === 1) { // Si no hay filas adicionales, solo están los encabezados
+        alert("No hay empleados del departamento 'EYE' para exportar.");
+        return;
+    }
+
+    // Crear el archivo Excel solo con los empleados que tienen departamentos que empiezan con "EYE"
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Reporte EYE');
+
+    // Generar el archivo Excel
+    XLSX.writeFile(wb, 'reporte_EYE.xlsx');
+}
+
+function exportPrenomina() {
+    // Obtener la tabla actual
+    const table = document.getElementById('personal-table');
+
+    // Crear un array vacío para almacenar los datos filtrados
+    let data = [];
+
+    // Obtener los encabezados de la tabla para Prenómina
+    let headers = ["Departamento", "Código", "Nombre", "RFC", "CURP", "Correo Electrónico", "Puesto", "Alta", "Baja", "Reingreso", "NSS"];
+    data.push(headers); // Agregar los encabezados como la primera fila
+
+    // Recorrer las filas de la tabla (excluyendo el encabezado) para obtener los datos
+    let personalData = [];
+    for (let i = 1, row; row = table.rows[i]; i++) {
+        let rowData = [];
+
+        // Obtener los valores de las columnas específicas (de acuerdo al orden correcto)
+        let department = row.cells[7].innerText;  // Departamento
+        let codigo = row.cells[0].innerText.padStart(5, '0'); // Código (Número de empleado con 5 dígitos)
+        let nombre = row.cells[1].innerText;  // Nombre completo
+        let rfc = row.cells[2].innerText;  // RFC
+        let curp = row.cells[3].innerText; // CURP
+        let nss = row.cells[4].innerText || ''; // NSS
+        let email = row.cells[5].innerText || ''; // Correo electrónico
+        let puesto = row.cells[6].innerText;  // Puesto
+        let alta = row.cells[8].innerText;  // Fecha de Alta
+        let baja = row.cells[9].innerText || ''; // Fecha de Baja
+        let reingreso = row.cells[10].innerText || '';  // Fecha de Reingreso
+
+        // Añadir los datos a la lista de personalData
+        personalData.push({ department, rowData: [department, codigo, nombre, rfc, curp, email, puesto, alta, baja, reingreso, nss] });
+    }
+
+    // Ordenar los datos por departamento de forma alfabética
+    personalData.sort((a, b) => a.department.localeCompare(b.department));
+
+    // Agregar filas vacías entre departamentos diferentes
+    let lastDepartment = '';
+    personalData.forEach(emp => {
+        if (emp.department !== lastDepartment) {
+            if (lastDepartment !== '') {
+                data.push([]); // Insertar una fila vacía antes de un nuevo departamento
+            }
+            lastDepartment = emp.department;
+        }
+        data.push(emp.rowData); // Agregar los datos de la fila
+    });
+
+    if (data.length === 1) { // Si no hay filas adicionales, solo están los encabezados
+        alert("No hay datos para generar la prenómina.");
+        return;
+    }
+
+    // Crear el archivo Excel con los datos ordenados y separados por departamento
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Prenomina');
+
+    // Generar el archivo Excel
+    XLSX.writeFile(wb, 'prenómina.xlsx');
+}
+
+
+
+
+function exportBajas() {
+    // Obtener la tabla actual
+    const table = document.getElementById('personal-table');
+
+    // Crear un array vacío para almacenar los datos filtrados
+    let data = [];
+
+    // Obtener los encabezados de la tabla (sin la columna de acciones)
+    let headers = [];
+    for (let j = 0; j < table.rows[0].cells.length; j++) {
+        if (j !== table.rows[0].cells.length - 1) { // Omitir la columna de "Acciones"
+            headers.push(table.rows[0].cells[j].innerText);
+        }
+    }
+    data.push(headers); // Agregar los encabezados como la primera fila
+
+    // Recorrer las filas de la tabla (excluyendo el encabezado)
+    for (let i = 1, row; row = table.rows[i]; i++) {
+        let rowData = [];
+        let department = '';
+
+        for (let j = 0, col; col = row.cells[j]; j++) {
+            // Omite la columna de "Acciones" (índice 13)
+            if (j !== table.rows[0].cells.length - 1) {
+                let cellValue = col.innerText;
+
+                // Si estamos en la columna de "Departamento" (índice 6), capturamos su valor
+                if (j === 7) {
+                    department = cellValue;
+                }
+
+                // Si estamos en la columna de "Número de Empleado" (columna 0), formatearlo a 5 dígitos
+                if (j === 0) {
+                    cellValue = cellValue.padStart(5, '0');
+                }
+
+                rowData.push(cellValue);
+            }
+        }
+
+        // Verificar si el departamento es "Baja"
+        if (department.toUpperCase() === 'BAJA') {
+            data.push(rowData); // Agregar solo las filas que cumplen la condición
+        }
+    }
+
+    if (data.length === 1) { // Si no hay filas adicionales, solo están los encabezados
+        alert("No hay empleados en el departamento 'Baja' para exportar.");
+        return;
+    }
+
+    // Crear el archivo Excel solo con los empleados del departamento "Baja"
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Reporte Bajas');
+
+    // Generar el archivo Excel
+    XLSX.writeFile(wb, 'reporte_bajas.xlsx');
+}
+
+function backupDatabase() {
+    fetch('/admin/backup', {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Error al generar el respaldo de la base de datos');
+        }
+        return response.blob();
+    })
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `backup_${new Date().toISOString().slice(0, 10)}.sql`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al generar el respaldo de la base de datos');
+    });
+}
+
+function fetchUpdatedPersonalData() {
+    // Guardar el estado actual
+    const currentSearchQuery = document.getElementById('search-input').value.toLowerCase().trim();
+    const currentDepartmentFilter = document.getElementById('department-filter').value;
+    const currentPositionFilter = document.getElementById('position-filter').value;
+    const currentSortCriteria = localStorage.getItem('currentSortCriteria') || 'employee_number';
+    const currentSortOrder = localStorage.getItem('currentSortOrder') || 'asc';
+    const scrollPosition = document.querySelector('.table-container').scrollLeft;
+
+    // Obtener datos actualizados
+    fetch('/admin/personal', {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Error al obtener los datos del personal');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (CURRENT_ALLOWED_DEPARTMENTS.includes('Todos')) {
+            personalData = data;
+        } else {
+            personalData = data.filter(emp => CURRENT_ALLOWED_DEPARTMENTS.includes(emp.department_name));
+        }
+
+        refreshCatalogFilters();
+
+        let filteredData = personalData;
+
+        if (currentSearchQuery || currentDepartmentFilter || currentPositionFilter) {
+            filteredData = personalData.filter(emp => {
+                const matchesSearchQuery =
+                    emp.full_name.toLowerCase().includes(currentSearchQuery) ||
+                    emp.employee_number.toString().includes(currentSearchQuery);
+                const matchesDepartment =
+                    currentDepartmentFilter === '' || emp.department_name === currentDepartmentFilter;
+                const matchesPosition =
+                    currentPositionFilter === '' || emp.puesto === currentPositionFilter;
+
+                return matchesSearchQuery && matchesDepartment && matchesPosition;
+            });
+        }
+
+        // Aplicar ordenamiento **siempre** (para mantener consistencia)
+        filteredData.sort((a, b) => {
+            if (a.department_name === 'Baja' && b.department_name !== 'Baja') return 1;
+            if (a.department_name !== 'Baja' && b.department_name === 'Baja') return -1;
+
+            const valueA = a[currentSortCriteria] || ''; // Tratar valores nulos como cadenas vacías
+            const valueB = b[currentSortCriteria] || '';
+
+            if (valueA < valueB) return currentSortOrder === 'asc' ? -1 : 1;
+            if (valueA > valueB) return currentSortOrder === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        // Renderizar la tabla con los datos filtrados y ordenados
+        renderPersonalTable(filteredData);
+
+        // Restaurar la posición del scroll
+        document.querySelector('.table-container').scrollLeft = scrollPosition;
+    })
+    .catch(error => {
+        console.error('Error al actualizar la tabla:', error);
+        alert('Ocurrió un error al actualizar los datos del personal.');
+    });
+}
+
+
+
+
+document.addEventListener('DOMContentLoaded', () => {
+    const tableContainer = document.querySelector('.table-container');
+
+    let isDragging = false;
+    let startX, scrollLeft;
+
+    tableContainer.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        startX = e.pageX - tableContainer.offsetLeft;
+        scrollLeft = tableContainer.scrollLeft;
+        tableContainer.style.cursor = 'grabbing';
+    });
+
+    tableContainer.addEventListener('mouseleave', () => {
+        isDragging = false;
+        tableContainer.style.cursor = 'grab';
+    });
+
+    tableContainer.addEventListener('mouseup', () => {
+        isDragging = false;
+        tableContainer.style.cursor = 'grab';
+    });
+
+    tableContainer.addEventListener('mousemove', (e) => {
+        if (!isDragging) return; // Solo arrastrar si está presionado el botón del ratón
+        e.preventDefault();
+        const x = e.pageX - tableContainer.offsetLeft; // Coordenada horizontal
+        const walk = x - startX; // Desplazamiento horizontal
+        tableContainer.scrollLeft = scrollLeft - walk;
+    });
+});
+
+function previewBulkData() {
+    const textarea = document.getElementById('bulk-add-textarea');
+    const previewDiv = document.getElementById('bulk-add-preview');
+    const previewContent = document.getElementById('preview-content');
+    const sendButton = document.getElementById('bulk-send-btn'); // Botón de enviar datos
+
+    const data = textarea.value.trim();
+    if (!data) {
+        showNotification('Por favor, pega los datos antes de generar la vista previa.', 'error');
+        return;
+    }
+
+    // Convertir los datos en filas y columnas para mostrar de manera legible
+    const rows = data.split('\n').map(row => 
+        row.split('\t').map(cell => 
+            cell.trim().toUpperCase().replace(/-/g, '') // Convertir a mayúsculas y eliminar guiones medios
+        )
+    );
+
+    // Crear una vista previa en formato legible
+    let previewHTML = '<table border="1" style="border-collapse: collapse; width: 100%;">';
+    rows.forEach((row, index) => {
+        previewHTML += `<tr style="${index === 0 ? 'font-weight: bold; background-color: #f4f4f4;' : ''}">`;
+        row.forEach(cell => {
+            previewHTML += `<td style="padding: 5px;">${cell}</td>`;
+        });
+        previewHTML += '</tr>';
+    });
+    previewHTML += '</table>';
+
+    previewContent.innerHTML = previewHTML;
+    previewDiv.style.display = 'block';
+
+    // Mostrar el botón "Enviar Datos"
+    sendButton.style.display = 'block';
+
+    // Mostrar advertencia en un cuadro de alerta
+    alert(
+        "Asegúrate de que los datos estén en orden y en el siguiente formato:\n" +
+        "Departamento, Código, Nombre, RFC, CURP, Puesto, Alta, Baja, Reingreso, NSS, [Correo electrónico opcional]\n\n" +
+        "El envío masivo es un procedimiento delicado. Verifica que los datos sean correctos antes de continuar."
+    );
+}
+
+// Ocultar el botón "Enviar Datos" al cargar la página
+document.addEventListener('DOMContentLoaded', () => {
+    const sendButton = document.getElementById('bulk-send-btn'); // Botón de enviar datos
+    sendButton.style.display = 'none'; // Ocultar el botón al cargar
+});
+
+
+
+function sendBulkData() {
+    const bulkData = document.getElementById('bulk-add-textarea').value;
+
+    // Procesar las líneas de texto
+    const rows = bulkData.trim().split('\n');
+    
+    // Ignorar la primera fila (encabezados) y procesar los datos
+    const employees = rows.slice(1).map(row => {
+        const columns = row.split('\t'); // Separar columnas por tabuladores (\t)
+
+        return {
+            department_name: normalizeString(columns[0]?.trim() || ''),
+            employee_number: parseInt(columns[1]?.trim(), 10) || null,
+            full_name: normalizeString(columns[2]?.trim() || ''),
+            rfc: truncateString(normalizeString(columns[3]?.trim() || null), 13),
+            curp: truncateString(normalizeString(columns[4]?.trim() || null), 18),
+            puesto: normalizeString(columns[5]?.trim() || null),
+            start_date: normalizeDate(columns[6]?.trim() || ''),
+            fecha_baja: normalizeDate(columns[7]?.trim() || null),
+            fecha_reingreso: normalizeDate(columns[8]?.trim() || null),
+            nss: normalizeString(columns[9]?.trim() || null),
+            email: normalizeEmail(columns[10]?.trim() || null)
+        };
+    });
+
+    // Validar que los empleados tengan los campos mínimos requeridos
+    const invalidEmployees = employees.filter(emp =>
+        !emp.employee_number || !emp.full_name || !emp.department_name || !emp.start_date
+    );
+
+    if (invalidEmployees.length > 0) {
+        alert('Algunos empleados tienen datos incompletos. Revisa los registros.');
+        console.error('Empleados inválidos:', invalidEmployees);
+        return;
+    }
+
+    // Enviar los datos al servidor
+    fetch('/admin/personal/bulk', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(employees)
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Error al enviar los datos al servidor');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Respuesta del servidor:', data);
+            alert('Los datos se enviaron correctamente.');
+        })
+        .catch(error => {
+            console.error('Error al enviar datos:', error);
+            alert('Hubo un error al enviar los datos. Verifica los registros.');
+        });
+}
+
+// Función para normalizar cadenas: eliminar guiones y convertir a mayúsculas
+function normalizeString(str) {
+    if (!str) return str;
+    return str.replace(/-/g, '').toUpperCase();
+}
+
+// Función para truncar cadenas a un máximo de longitud
+function truncateString(str, maxLength) {
+    if (!str) return str;
+    return str.length > maxLength ? str.substring(0, maxLength) : str;
+}
+
+// Función para convertir fechas al formato yyyy-mm-dd
+function normalizeDate(dateStr) {
+    if (!dateStr) return null;
+    const [day, month, year] = dateStr.split('/');
+    if (!day || !month || !year) return null;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
+
+function normalizeEmail(emailStr) {
+    if (!emailStr) return null;
+    return emailStr.trim().toLowerCase();
+}
+
+function showNotification(message, type) {
+    const notification = document.getElementById('bulk-add-notification');
+    notification.textContent = message;
+    notification.style.display = 'block';
+    notification.style.padding = '10px';
+    notification.style.borderRadius = '4px';
+    notification.style.color = type === 'success' ? '#3c763d' : '#a94442';
+    notification.style.backgroundColor = type === 'success' ? '#dff0d8' : '#f2dede';
+    notification.style.border = type === 'success' ? '1px solid #d6e9c6' : '1px solid #ebccd1';
+
+    // Ocultar después de 5 segundos
+    setTimeout(() => {
+        notification.style.display = 'none';
+    }, 5000);
+}
+
+
+
+
+
+</script>
+
+    
+</body>
+</html>

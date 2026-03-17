@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHC BITACORA RH 2.0</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>
+            <img src="Logoheader.png" alt="Logo" class="logo">
+            CHC BITACORA RH 2.0
+            <span class="version-info">Versión 2.0</span>
+        </h1>
+
+        <div class="toolbar">
+            <a href="asistencias.html">
+                <img src="asistencias.png" alt="Asistencias" class="icono-nav">
+                ADMON. ASISTENCIAS
+            </a>
+            <a href="dashboard.html">
+                <img src="vacaciones.png" alt="Vacaciones" class="icono-nav">
+                ADMON. VACACIONES
+            </a>
+            <a href="admon.html">
+                <img src="personal.png" alt="Personal" class="icono-nav">
+                ADMON. PERSONAL
+            </a>
+            <a href="sistema.html">
+                <img src="sistema.svg" alt="Sistema" class="icono-nav">
+                ADMON. SISTEMA
+            </a>
+        </div>
+
+        <div class="user-info">
+            <p class="info-box">Usuario: <span id="username"></span></p>
+            <p class="info-box">Nombre: <span id="full-name"></span></p>
+            <p class="info-box">Rol: <span id="user-role"></span></p>
+        </div>
+
+        <div id="system-module" class="module" style="display: block;">
+            <h2>ADMINISTRACIÓN DEL SISTEMA</h2>
+            <p class="helper-text">Desde aquí puedes crear usuarios, reasignar roles, definir el acceso por departamentos y mantener los catálogos de departamentos y puestos.</p>
+
+            <div class="system-actions">
+                <button onclick="openCreateUserModal()">Crear Usuario</button>
+                <button onclick="refreshSystemData()">Actualizar Datos</button>
+            </div>
+
+            <div class="table-container">
+                <table id="users-table">
+                    <thead>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Nombre completo</th>
+                            <th>Rol</th>
+                            <th>Todos los departamentos</th>
+                            <th>Departamentos asignados</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div class="system-grid">
+                <div class="system-card">
+                    <h3>Catálogo de Departamentos</h3>
+                    <div class="system-inline-form">
+                        <input type="text" id="new-department-name" maxlength="255" placeholder="Nombre del departamento">
+                        <button type="button" onclick="addDepartment()">Agregar</button>
+                        <button type="button" class="danger-button" onclick="deleteSelectedDepartment()">Eliminar seleccionado</button>
+                    </div>
+                    <p class="helper-text">Puedes seleccionar un departamento del listado para eliminarlo. No se permite eliminar si hay empleados con ese departamento en su registro.</p>
+                    <div class="system-list selectable-list">
+                        <ul id="departments-list"></ul>
+                    </div>
+                </div>
+
+                <div class="system-card">
+                    <h3>Catálogo de Puestos</h3>
+                    <div class="system-inline-form">
+                        <input type="text" id="new-position-name" maxlength="255" placeholder="Nombre del puesto">
+                        <button type="button" onclick="addPosition()">Agregar</button>
+                        <button type="button" class="danger-button" onclick="deleteSelectedPosition()">Eliminar seleccionado</button>
+                    </div>
+                    <p class="helper-text">Puedes seleccionar un puesto del listado para eliminarlo. No se permite eliminar si hay empleados con ese puesto en su registro.</p>
+                    <div class="system-list selectable-list">
+                        <ul id="positions-list"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <a id="logout-btn" class="logout-btn">Cerrar Sesión</a>
+        </div>
+
+        <div id="modal-overlay" class="modal-overlay"></div>
+
+        <div id="user-modal" class="modal-content">
+            <h2 id="user-modal-title">Crear Usuario</h2>
+            <form id="user-form">
+                <input type="hidden" id="user-id">
+                <div class="form-group">
+                    <label for="modal-username">Usuario:</label>
+                    <input type="text" id="modal-username" maxlength="255" required>
+                </div>
+                <div class="form-group">
+                    <label for="modal-full-name">Nombre completo:</label>
+                    <input type="text" id="modal-full-name" maxlength="255" required>
+                </div>
+                <div class="form-group" id="modal-password-group">
+                    <label for="modal-password">Contraseña:</label>
+                    <input type="text" id="modal-password" maxlength="255">
+                </div>
+                <div class="form-group">
+                    <label for="modal-role">Rol:</label>
+                    <select id="modal-role">
+                        <option value="admin">admin</option>
+                        <option value="manager">manager</option>
+                        <option value="user">user</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="modal-all-departments">
+                        Acceso a todos los departamentos
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>Departamentos asignados:</label>
+                    <div id="department-checklist" class="department-checklist"></div>
+                    <p class="helper-text">Activa varios departamentos según corresponda. Si marcas “todos”, esta lista se deshabilita.</p>
+                </div>
+                <div class="form-buttons">
+                    <button type="submit" id="save-user-btn">Guardar</button>
+                    <button type="button" onclick="closeUserModal()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+
+        <div id="password-modal" class="modal-content">
+            <h2>Cambiar Contraseña</h2>
+            <form id="password-form">
+                <input type="hidden" id="password-user-id">
+                <div class="form-group">
+                    <label id="password-user-label">Usuario:</label>
+                </div>
+                <div class="form-group">
+                    <label for="new-password">Nueva contraseña:</label>
+                    <input type="text" id="new-password" maxlength="255" required>
+                </div>
+                <div class="form-buttons">
+                    <button type="submit">Guardar</button>
+                    <button type="button" onclick="closePasswordModal()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <footer style="text-align: center; margin-top: 50px; font-size: 14px; color: gray;">
+        <p>&copy; 2024-2026 Cremería Hermanos Coronel. Todos los derechos reservados.</p>
+    </footer>
+
+    <script src="sistema.js"></script>
+</body>
+</html>

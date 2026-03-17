@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inicio de Sesión | CHC Incidencias</title>
+    <style>
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            background: linear-gradient(135deg, #fef6ba, #f5a623); /* Fondo con degradado */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .login-container {
+            background-color: #800020; /* Color vino */
+            color: #ffffff; /* Texto blanco */
+            padding: 30px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); /* Sombra suave */
+            max-width: 360px; /* Ancho máximo para dispositivos pequeños */
+            width: 100%; /* Ajuste automático en pantallas pequeñas */
+            text-align: center;
+        }
+
+        .login-container img:not(.logo-img) {
+         width: 80px;
+         height: auto;
+         margin-bottom: 20px;
+        }
+
+
+        .login-container h2 {
+            font-size: 1.5rem; /* Tamaño de fuente del título */
+            margin-bottom: 20px;
+        }
+
+        .login-container label {
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .login-container input[type="text"],
+        .login-container input[type="password"] {
+            width: 100%;
+            padding: 12px 15px;
+            margin-bottom: 15px;
+            border: none;
+            border-radius: 6px;
+            background: #f3f3f3;
+            box-sizing: border-box;
+            font-size: 0.95rem;
+        }
+
+        .login-container input[type="text"]:focus,
+        .login-container input[type="password"]:focus {
+            outline: none;
+            border: 2px solid #f5a623;
+            background: #ffffff;
+        }
+
+        .login-container input[type="submit"] {
+            background-color: #007bff;
+            color: #ffffff;
+            border: none;
+            padding: 12px 15px;
+            border-radius: 6px;
+            width: 100%;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s ease;
+        }
+
+        .login-container input[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+
+        .error-message {
+            color: #ff4d4d;
+            margin-bottom: 15px;
+            display: none; /* Oculta por defecto */
+            font-size: 0.9rem;
+        }
+
+        /* Estilos para la advertencia de sesión */
+        .session-warning {
+            margin-top: 15px;
+            padding: 8px;
+            font-size: 0.85rem;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            color: #e0e0e0; /* Gris claro */
+            font-weight: normal;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        footer {
+            margin-top: 20px;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        footer p {
+            margin: 0;
+        }
+        
+        /* Recuadro para la versión */
+        .version-box {
+            margin-top: 20px;
+            padding: 8px 12px;
+            border: 1px solid #ffffff;
+            border-radius: 6px;
+            background-color: rgba(255, 255, 255, 0.2);
+            font-size: 0.9rem;
+            display: inline-block;
+        }
+
+        /* Responsividad para dispositivos pequeños */
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 20px;
+            }
+
+            .login-container h2 {
+                font-size: 1.2rem;
+            }
+
+            footer {
+                font-size: 0.7rem;
+            }
+        }
+
+        .logo-img {
+    width: 140px;
+    height: auto;
+    margin-bottom: 20px;
+    padding: 10px;
+    background-color: #ffffff;
+    border-radius: 12px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 0 0 transparent;
+    opacity: 0;
+    animation: fadeIn 1s ease-in-out forwards;
+}
+
+.logo-img:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.5);
+}
+
+/* Animación al cargar */
+@keyframes fadeIn {
+    to {
+        opacity: 1;
+    }
+}
+
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <!-- Logo de la empresa -->
+        <img src="Logoheader.png" alt="Logo de CHC" class="logo-img">
+
+
+        <h2>Inicio de Sesión</h2>
+
+        <!-- Mensaje de error -->
+        <div id="error-message" class="error-message"></div>
+
+        <!-- Formulario de login -->
+        <form id="login-form">
+            <label for="username">Nombre de Usuario:</label>
+            <input type="text" id="username" name="username" placeholder="Ingresa tu usuario" required>
+
+            <label for="password">Contraseña:</label>
+            <input type="password" id="password" name="password" placeholder="Ingresa tu contraseña" required>
+
+            <input type="submit" value="Iniciar Sesión">
+        </form>
+
+        <!-- Advertencia de duración de sesión -->
+        <div class="session-warning">
+            ⚠️ La sesión expira en 2 horas, después de lo cual será necesario volver a iniciar sesión.
+        </div>
+
+         <!-- <a href="https://forms.office.com/r/rMJ2PBiRVm?origin=lprLink" target="_blank" class="btn" style="display: inline-block; margin-top: 15px; padding: 10px 20px; background-color: #0078D7; color: #fff; text-decoration: none; border-radius: 4px;">
+            Cuestionario de Aceptación de Requisitos
+          </a>-->
+          
+
+        <footer>
+          
+            <p>&copy; 2024-2026 Cremería Hermanos Coronel. Todos los derechos reservados.</p>
+        </footer>
+        
+        <!-- Recuadro de versión -->
+        <div class="version-box">
+            Versión 2.0
+        </div>
+    </div>
+
+    
+
+    <script>
+        const form = document.getElementById('login-form');
+        const errorMessage = document.getElementById('error-message');
+
+        form.addEventListener('submit', function(event) {
+            event.preventDefault(); // Evita que el formulario se envíe de manera predeterminada
+
+            const formData = new FormData(form);
+            const data = {
+                username: formData.get('username'),
+                password: formData.get('password')
+            };
+
+            fetch('/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.error) {
+                    // Mostrar mensaje de error si lo hay
+                    errorMessage.textContent = result.error;
+                    errorMessage.style.display = 'block';
+                } else {
+                    // Almacenar el token en localStorage y redirigir a la página protegida
+                    localStorage.setItem('token', result.token);
+                    window.location.href = '/asistencias.html';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        });
+    </script>
+</body>
+</html>
