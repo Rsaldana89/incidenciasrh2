@@ -654,7 +654,11 @@ app.put('/api/admin/system/users/:id/password', authenticateToken, requireAdminC
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
-    res.redirect('/login.html');
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/health', (req, res) => {
+    res.status(200).send('OK');
 });
 
 app.get('/dashboard', authenticateToken, async (req, res) => {
@@ -1213,6 +1217,22 @@ app.use((err, req, res, next) => {
 
 
 
-app.listen(port, '0.0.0.0', () => {
-     console.log(`Servidor corriendo en http://0.0.0.0:${port}`);
+const server = app.listen(port, '0.0.0.0', () => {
+    console.log(`Servidor corriendo en http://0.0.0.0:${port}`);
 });
+
+function shutdown(signal) {
+    console.log(`${signal} recibido. Cerrando servidor...`);
+    server.close(() => {
+        console.log('Servidor HTTP cerrado correctamente.');
+        process.exit(0);
+    });
+
+    setTimeout(() => {
+        console.warn('Forzando cierre del proceso tras timeout de shutdown.');
+        process.exit(0);
+    }, 10000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
