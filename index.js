@@ -1,6 +1,6 @@
 const express = require('express');
 const app = express();
-const port = process.env.PORT || 3000;
+const port = 3000;
 
 const db = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
@@ -9,6 +9,10 @@ const jwt = require('jsonwebtoken');
 const mysqldump = require('mysqldump');
 const path = require('path');
 const fs = require('fs');
+
+const axios = require('axios');
+
+const schedule = require('node-schedule');
 
 process.env.TZ = 'America/Mexico_City';
 
@@ -52,13 +56,52 @@ if (!fs.existsSync(backupsDir)) {
 }
 
 
-
-app.get('/keepalive', (req, res) => {
-    res.status(200).json({ message: 'OK' });
+// Programa para reiniciar a las 5:00 AM
+schedule.scheduleJob('0 6 * * *', () => {
+    console.log('Reinicio programado a las 6:00 AM');
+    restartApplication();
 });
 
-app.get('/health', (req, res) => {
-    res.status(200).send('OK');
+// Programa para reiniciar a las 12:00 PM
+schedule.scheduleJob('0 12 * * *', () => {
+    console.log('Reinicio programado a las 12:00 PM');
+    restartApplication();
+});
+
+// Programa para reiniciar a las 5:00 PM
+schedule.scheduleJob('0 18 * * *', () => {
+    console.log('Reinicio programado a las 6:00 PM');
+    restartApplication();
+});
+
+
+// Programa para reiniciar a las 8:00 PM
+schedule.scheduleJob('0 21 * * *', () => {
+    console.log('Reinicio programado a las 9:00 PM');
+    restartApplication();
+});
+
+
+
+// Función para reiniciar la aplicación
+function restartApplication() {
+    console.log('Reiniciando aplicación en Railway...');
+    process.exit(0); // Provoca que Railway reinicie el contenedor
+}
+
+
+
+// keepalive en el servidor usando axios
+setInterval(() => {
+    axios.get('http://0.0.0.0:3000/keepalive')
+        .then(response => console.log("Solicitud de keepalive desde el servidor"))
+        .catch(error => console.error("Error manteniendo sesión activa desde el servidor:", error));
+}, 20 * 60 * 1000); // Cada 20 minutos
+
+
+app.get('/keepalive', (req, res) => {
+    console.log('Solicitud de keepalive recibida');
+    res.status(200).json({ message: 'Manteniendo sesión activa' });
 });
 
 
@@ -1217,28 +1260,6 @@ app.use((err, req, res, next) => {
 
 
 
-const server = app.listen(port, '0.0.0.0', () => {
+app.listen(port, '0.0.0.0', () => {
      console.log(`Servidor corriendo en http://0.0.0.0:${port}`);
-});
-
-function shutdown(signal) {
-    console.log(`${signal} recibido. Cerrando servidor...`);
-    server.close(() => {
-        console.log('Servidor HTTP cerrado correctamente.');
-        process.exit(0);
-    });
-
-    setTimeout(() => {
-        console.warn('Forzando cierre del proceso tras timeout de shutdown.');
-        process.exit(0);
-    }, 10000).unref();
-}
-
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
-process.on('unhandledRejection', (reason) => {
-    console.error('Unhandled Rejection:', reason);
-});
-process.on('uncaughtException', (error) => {
-    console.error('Uncaught Exception:', error);
 });
