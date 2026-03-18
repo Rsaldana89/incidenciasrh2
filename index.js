@@ -1,6 +1,6 @@
 const express = require('express');
 const app = express();
-const port = process.env.PORT || 3000;
+const port = 3000;
 
 const db = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken');
 const mysqldump = require('mysqldump');
 const path = require('path');
 const fs = require('fs');
+
 
 
 process.env.TZ = 'America/Mexico_City';
@@ -53,8 +54,7 @@ if (!fs.existsSync(backupsDir)) {
 }
 
 
-// Reinicios programados desactivados para evitar caídas del servicio en producción.
-// Keepalive interno desactivado; no aporta estabilidad en Railway y puede generar ruido.
+// Reinicios programados desactivados quirurgicamente para evitar caidas en Railway.
 
 app.get('/keepalive', (req, res) => {
     console.log('Solicitud de keepalive recibida');
@@ -1217,22 +1217,6 @@ app.use((err, req, res, next) => {
 
 
 
-const server = app.listen(port, '0.0.0.0', () => {
+app.listen(port, '0.0.0.0', () => {
      console.log(`Servidor corriendo en http://0.0.0.0:${port}`);
-});
-
-process.on('SIGTERM', () => {
-    console.log('SIGTERM recibido. Cerrando servidor...');
-    server.close(() => {
-        console.log('Servidor cerrado correctamente.');
-        process.exit(0);
-    });
-});
-
-process.on('SIGINT', () => {
-    console.log('SIGINT recibido. Cerrando servidor...');
-    server.close(() => {
-        console.log('Servidor cerrado correctamente.');
-        process.exit(0);
-    });
 });
