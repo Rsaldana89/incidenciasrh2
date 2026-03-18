@@ -10,7 +10,6 @@ const mysqldump = require('mysqldump');
 const path = require('path');
 const fs = require('fs');
 
-
 process.env.TZ = 'America/Mexico_City';
 
 // Definir la ruta del archivo de logs y la función logActivity
@@ -53,8 +52,13 @@ if (!fs.existsSync(backupsDir)) {
 }
 
 
+
 app.get('/keepalive', (req, res) => {
     res.status(200).json({ message: 'OK' });
+});
+
+app.get('/health', (req, res) => {
+    res.status(200).send('OK');
 });
 
 
@@ -651,14 +655,10 @@ app.put('/api/admin/system/users/:id/password', authenticateToken, requireAdminC
     }
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static('public'));
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'login.html'));
-});
-
-app.get('/health', (req, res) => {
-    res.status(200).send('OK');
+    res.redirect('/login.html');
 });
 
 app.get('/dashboard', authenticateToken, async (req, res) => {
@@ -1218,7 +1218,7 @@ app.use((err, req, res, next) => {
 
 
 const server = app.listen(port, '0.0.0.0', () => {
-    console.log(`Servidor corriendo en http://0.0.0.0:${port}`);
+     console.log(`Servidor corriendo en http://0.0.0.0:${port}`);
 });
 
 function shutdown(signal) {
@@ -1236,3 +1236,9 @@ function shutdown(signal) {
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('unhandledRejection', (reason) => {
+    console.error('Unhandled Rejection:', reason);
+});
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+});

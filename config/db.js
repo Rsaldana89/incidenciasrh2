@@ -1,7 +1,9 @@
+// Cargar las variables de entorno desde el archivo .env
 require('dotenv').config();
 
 const mysql = require('mysql2');
 
+// Pool de conexiones para mayor estabilidad en Railway
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -16,7 +18,7 @@ const pool = mysql.createPool({
 
 pool.getConnection((err, connection) => {
   if (err) {
-    console.error('Error al conectar a la base de datos:', err);
+    console.error('Error al conectar a la base de datos:', err.stack || err);
     return;
   }
   console.log('Conectado a la base de datos.');
