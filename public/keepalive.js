@@ -1,2 +1,2 @@
-// Keepalive deshabilitado en frontend.
-// Railway usa el healthcheck del servicio y el backend expone /keepalive.
+// Keepalive frontend desactivado en producción.
+// La sesión se mantiene por token; no se requieren pings desde el navegador.
