@@ -1,6 +1,6 @@
 const express = require('express');
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 const db = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
@@ -10,9 +10,6 @@ const mysqldump = require('mysqldump');
 const path = require('path');
 const fs = require('fs');
 
-const axios = require('axios');
-
-const schedule = require('node-schedule');
 
 process.env.TZ = 'America/Mexico_City';
 
@@ -56,48 +53,8 @@ if (!fs.existsSync(backupsDir)) {
 }
 
 
-// Programa para reiniciar a las 5:00 AM
-schedule.scheduleJob('0 6 * * *', () => {
-    console.log('Reinicio programado a las 6:00 AM');
-    restartApplication();
-});
-
-// Programa para reiniciar a las 12:00 PM
-schedule.scheduleJob('0 12 * * *', () => {
-    console.log('Reinicio programado a las 12:00 PM');
-    restartApplication();
-});
-
-// Programa para reiniciar a las 5:00 PM
-schedule.scheduleJob('0 18 * * *', () => {
-    console.log('Reinicio programado a las 6:00 PM');
-    restartApplication();
-});
-
-
-// Programa para reiniciar a las 8:00 PM
-schedule.scheduleJob('0 21 * * *', () => {
-    console.log('Reinicio programado a las 9:00 PM');
-    restartApplication();
-});
-
-
-
-// Función para reiniciar la aplicación
-function restartApplication() {
-    console.log('Reiniciando aplicación en Railway...');
-    process.exit(0); // Provoca que Railway reinicie el contenedor
-}
-
-
-
-// keepalive en el servidor usando axios
-setInterval(() => {
-    axios.get('http://0.0.0.0:3000/keepalive')
-        .then(response => console.log("Solicitud de keepalive desde el servidor"))
-        .catch(error => console.error("Error manteniendo sesión activa desde el servidor:", error));
-}, 20 * 60 * 1000); // Cada 20 minutos
-
+// Reinicios programados desactivados para evitar caídas del servicio en producción.
+// Keepalive interno desactivado; no aporta estabilidad en Railway y puede generar ruido.
 
 app.get('/keepalive', (req, res) => {
     console.log('Solicitud de keepalive recibida');
@@ -1260,6 +1217,22 @@ app.use((err, req, res, next) => {
 
 
 
-app.listen(port, '0.0.0.0', () => {
+const server = app.listen(port, '0.0.0.0', () => {
      console.log(`Servidor corriendo en http://0.0.0.0:${port}`);
+});
+
+process.on('SIGTERM', () => {
+    console.log('SIGTERM recibido. Cerrando servidor...');
+    server.close(() => {
+        console.log('Servidor cerrado correctamente.');
+        process.exit(0);
+    });
+});
+
+process.on('SIGINT', () => {
+    console.log('SIGINT recibido. Cerrando servidor...');
+    server.close(() => {
+        console.log('Servidor cerrado correctamente.');
+        process.exit(0);
+    });
 });
