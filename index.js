@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express();
 const port = process.env.PORT || 3000;
+const host = '0.0.0.0';
 
 const db = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
@@ -12,6 +13,15 @@ const fs = require('fs');
 
 
 process.env.TZ = 'America/Mexico_City';
+
+process.on('uncaughtException', (error) => {
+    console.error('uncaughtException:', error);
+});
+
+process.on('unhandledRejection', (reason) => {
+    console.error('unhandledRejection:', reason);
+});
+
 
 // Definir la ruta del archivo de logs y la función logActivity
 const logPath = path.join(__dirname, 'public', 'log.json');
@@ -48,7 +58,7 @@ const backupsDir = path.join(__dirname, 'backups');
 
 // Verificar si la carpeta existe; si no, crearla
 if (!fs.existsSync(backupsDir)) {
-    fs.mkdirSync(backupsDir);
+    fs.mkdirSync(backupsDir, { recursive: true });
     console.log('Carpeta backups creada.');
 }
 
@@ -651,7 +661,7 @@ app.put('/api/admin/system/users/:id/password', authenticateToken, requireAdminC
     }
 });
 
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
     res.redirect('/login.html');
@@ -1213,6 +1223,6 @@ app.use((err, req, res, next) => {
 
 
 
-app.listen(port, '0.0.0.0', () => {
-     console.log(`Servidor corriendo en el puerto ${port}`);
+app.listen(port, host, () => {
+    console.log(`Servidor corriendo en el puerto ${port}`);
 });
