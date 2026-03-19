@@ -3,24 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CHC BITACORA RH 2.0</title>
+    <title>CHC Bitácora RH - Vacaciones 1.8</title>
     <link rel="stylesheet" href="styles.css">
-    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
-    <div class="container">
+    <div class="container vac18-page">
         <h1>
             <img src="Logoheader.png" alt="Logo" class="logo">
-            CHC BITACORA RH 2.0
-            <span class="version-info">Versión 2.0</span> <!-- Agregamos la versión aquí -->
+            CHC BITÁCORA RH
+            <span class="version-info" id="version-label">Versión 1.8</span>
         </h1>
-        <!-- Barra de Herramientas -->
+
         <div class="toolbar">
             <a href="asistencias.html">
                 <img src="asistencias.png" alt="Asistencias" class="icono-nav">
                 ADMON. ASISTENCIAS
             </a>
-            <a href="dashboard.html">
+            <a href="dashboard.html" class="active">
                 <img src="vacaciones.png" alt="Vacaciones" class="icono-nav">
                 ADMON. VACACIONES
             </a>
@@ -40,551 +42,141 @@
             <p class="info-box">Rol: <span id="user-role"></span></p>
         </div>
 
-        <!-- Módulo de Vacaciones -->
-        <div id="vacations-module" class="module" style="display: block;">
-            <h2>VACACIONES</h2>
-
-            <!-- Recuadro de Búsqueda -->
-            <div class="search-container">
-                <input type="text" id="vacation-search-input" placeholder="Buscar por nombre o número de empleado">
-                <button onclick="searchVacation()">Buscar</button>
-
-                <!-- Combobox para seleccionar departamento -->
-                <select id="vacation-department-filter" onchange="searchVacation()">
-                    <option value="">Todos los departamentos</option>
-                </select>
+        <section class="module vac18-module">
+            <div class="vac18-header">
+                <div>
+                    <h2>MÓDULO DE VACACIONES RH</h2>
+                    <p class="vac18-subtitle">Consulta saldos por empleado, importa archivos semanales de CONTPAQi y genera reportes depurados o estilo Compaq.</p>
+                </div>
+                <div class="vac18-badges">
+                    <span class="vac18-badge" id="vac18-visible-count">0 empleados visibles</span>
+                    <span class="vac18-badge vac18-badge-secondary" id="vac18-access-summary">Cargando permisos...</span>
+                </div>
             </div>
 
-            <div class="table-container">
-                <table id="vacation-table">
-                    <style>
-                        #vacation-table {
-                            text-transform: uppercase;
-                        }
-                    </style>
-                    
-                    <thead>
-                        <tr>
-                            <th onclick="sortTableBy('employee_number')">ID</th>
-                            <th onclick="sortTableBy('department_name')">Departamento</th>
-                            <th onclick="sortTableBy('full_name')">Nombre</th>
-                            <th>Fecha de Ingreso</th>
-                            <th>Fecha de Reingreso</th> <!-- Nueva columna de Fecha de Reingreso -->
-                            <th>Días de Vacaciones Correspondientes</th>
-                            <th>Días Pendientes del Periodo Anterior</th>
-                            <th>Días Tomados</th>
-                            <th>Días Restantes</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Las filas se generarán dinámicamente con JavaScript -->
-                    </tbody>
-                </table>
+            <div class="vac18-card">
+                <div class="vac18-card-title">Filtros de consulta</div>
+                <div class="vac18-grid vac18-grid-filters">
+                    <div class="vac18-field">
+                        <label for="filter-department">Departamento</label>
+                        <select id="filter-department">
+                            <option value="">Todos los departamentos</option>
+                        </select>
+                    </div>
+                    <div class="vac18-field">
+                        <label for="filter-employee">ID del empleado</label>
+                        <input type="text" id="filter-employee" placeholder="Ej. 00025">
+                    </div>
+                    <div class="vac18-field">
+                        <label for="filter-name">Nombre del empleado</label>
+                        <input type="text" id="filter-name" placeholder="Buscar por nombre">
+                    </div>
+                </div>
+                <div class="vac18-actions">
+                    <button type="button" id="btn-search">Buscar</button>
+                    <button type="button" class="secondary" id="btn-clear">Limpiar</button>
+                    <button type="button" class="secondary" id="btn-export-excel">Exportar Excel</button>
+                    <button type="button" class="secondary" id="btn-export-pdf">Exportar PDF</button>
+                    <button type="button" class="secondary" id="btn-print">Imprimir</button>
+                </div>
             </div>
 
-            <!-- Botón para exportar todos los empleados -->
-            <div class="export-all-container">
-                <button class="export-all-btn" onclick="exportAllEmployeesData()">Exportar Todos</button>
+            <div class="vac18-card vac18-admin-card" id="admin-panel" hidden>
+                <div class="vac18-card-title">Herramientas de administrador / RH</div>
+                <div class="vac18-grid vac18-grid-admin">
+                    <div class="vac18-field vac18-field-file">
+                        <label for="import-file">Archivo de saldos de vacaciones</label>
+                        <input type="file" id="import-file" accept=".xlsx,.xls">
+                        <small>Formatos soportados: Excel original de CONTPAQi y plantilla depurada del sistema.</small>
+                    </div>
+                    <div class="vac18-actions vac18-actions-admin">
+                        <button type="button" id="btn-preview-import">Vista previa</button>
+                        <button type="button" id="btn-confirm-import" class="success" disabled>Importar archivo</button>
+                        <button type="button" class="secondary" id="btn-download-template">Descargar plantilla</button>
+                        <button type="button" class="secondary" id="btn-export-compaq">Reporte Excel Compaq</button>
+                        <button type="button" class="secondary" id="btn-export-depurado-server">Reporte Excel depurado</button>
+                        <button type="button" class="secondary" id="btn-toggle-logs">Bitácora de cargas</button>
+                    </div>
+                </div>
+                <div id="import-feedback" class="vac18-feedback" aria-live="polite"></div>
             </div>
 
-            <div id="reportes-vacaciones" style="margin-top: 30px;">
-                <h3>
-                    <img src="excel.png" alt="Icono Excel" style="width: 24px; height: 24px; vertical-align: middle; margin-right: 10px;">
-                    Reportes y Exportación a XLSX
-                </h3>
-                <button onclick="exportarVacacionesExcel()">Exportar Vacaciones a Excel</button>
+            <div class="vac18-card" id="preview-panel" hidden>
+                <div class="vac18-card-title">Vista previa de importación</div>
+                <div class="vac18-summary-row" id="preview-summary"></div>
+                <div class="table-container vac18-table-container">
+                    <table class="vac18-preview-table" id="preview-table">
+                        <thead>
+                            <tr>
+                                <th>Fila</th>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>Departamento</th>
+                                <th>Total restante</th>
+                                <th>Periodo actual</th>
+                                <th>Pendiente anterior</th>
+                                <th>Estatus</th>
+                                <th>Detalle</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
             </div>
 
-            <div style="height: 50px;"></div>
-            
+            <div class="vac18-card" id="logs-panel" hidden>
+                <div class="vac18-card-title">Bitácora de importaciones</div>
+                <div class="table-container vac18-table-container">
+                    <table class="vac18-preview-table" id="logs-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Archivo</th>
+                                <th>Usuario</th>
+                                <th>Leídos</th>
+                                <th>Insertados</th>
+                                <th>Actualizados</th>
+                                <th>Errores</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
 
-            <a id="logout-btn" class="logout-btn" onclick="logout()">Cerrar Sesión</a>
-        </div>
+            <div class="vac18-card">
+                <div class="vac18-card-title">Consulta de vacaciones</div>
+                <div id="vacation-empty-state" class="vac18-empty-state" hidden>
+                    No hay empleados para los filtros seleccionados o aún no se han cargado saldos de vacaciones.
+                </div>
+                <div class="table-container vac18-table-container" id="vacation-table-container">
+                    <table id="vacation-table" class="vac18-main-table">
+                        <thead>
+                            <tr>
+                                <th>ID del empleado</th>
+                                <th>Nombre del empleado</th>
+                                <th>Departamento</th>
+                                <th>Fecha de ingreso</th>
+                                <th>Fecha de reingreso</th>
+                                <th>Días pendientes de periodos anteriores</th>
+                                <th>Días correspondientes al periodo en curso</th>
+                                <th>Total restante de vacaciones</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <a id="logout-btn" class="logout-btn">Cerrar Sesión</a>
+        </section>
 
         <footer style="text-align: center; margin-top: 50px; font-size: 14px; color: gray;">
             <p>&copy; 2024-2026 Cremería Hermanos Coronel. Todos los derechos reservados.</p>
         </footer>
-        
+    </div>
 
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.9/xlsx.full.min.js"></script>
-
-
-        <script>
-function toggleSystemAdminLink(role) {
-    const systemLink = document.getElementById('system-admin-link');
-    if (systemLink) {
-        systemLink.style.display = role === 'admin' ? 'inline-flex' : 'none';
-    }
-}
-
-let ALL_DEPARTMENTS = [];
-
-// Función para cargar los departamentos desde el archivo JSON
-function loadDepartments() {
-    fetch('departamentos.json') // Cambié el nombre a 'departamentos.json'
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Error al cargar los departamentos');
-            }
-            return response.json();
-        })
-        .then(data => {
-            ALL_DEPARTMENTS = data.departments;
-            populateDepartmentSelect('vacation-department-filter'); // Llenar el select específico
-        })
-        .catch(error => console.error('Error:', error));
-}
-
-// Función para llenar el selector con los departamentos cargados
-function populateDepartmentSelect(selectId) {
-    const selectElement = document.getElementById(selectId);
-    selectElement.innerHTML = ''; // Limpia las opciones existentes
-    ALL_DEPARTMENTS.forEach(dept => {
-        const option = document.createElement('option');
-        option.value = dept;
-        option.textContent = dept;
-        selectElement.appendChild(option);
-    });
-}
-
-// Llamar a loadDepartments cuando el DOM esté listo
-document.addEventListener('DOMContentLoaded', loadDepartments);
-
-
-let personalData = [];
-let filteredData = [];
-let editMode = {};
-let sortDirection = { employee_number: true, full_name: true, department_name: true };
-
-document.addEventListener('DOMContentLoaded', function () {
-    document.getElementById('logout-btn').style.display = 'inline';
-    const token = localStorage.getItem('token');
-
-    if (!token) {
-        alert('No estás autenticado. Por favor, inicia sesión.');
-        window.location.href = '/login.html';
-    } else {
-        fetch('/dashboard', {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${token}` }
-        })
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById('username').textContent = data.username; 
-            document.getElementById('full-name').textContent = data.full_name;
-            document.getElementById('user-role').textContent = data.role;
-            toggleSystemAdminLink(data.role);
-
-            // Obtener y filtrar vacaciones
-            fetchPrivilegesAndShowVacations(data.username, data.role);
-        })
-    }
-
-    document.getElementById('vacation-search-input').addEventListener('keydown', function (event) {
-        if (event.key === 'Enter') searchVacation();
-    });
-    populateVacationDepartmentSelect();
-});
-
-function populateDepartmentSelect(selectId) {
-    const selectElement = document.getElementById(selectId);
-    const currentValue = selectElement.value;
-    selectElement.innerHTML = ''; // Limpia las opciones existentes
-
-    const allOption = document.createElement('option');
-    allOption.value = '';
-    allOption.textContent = 'Todos los departamentos';
-    selectElement.appendChild(allOption);
-
-    const dataDepartments = personalData.map(emp => emp.department_name).filter(Boolean);
-    const availableDepartments = [...new Set([...ALL_DEPARTMENTS, ...dataDepartments])];
-
-    availableDepartments.forEach(dept => {
-        const option = document.createElement('option');
-        option.value = dept;
-        option.textContent = dept;
-        selectElement.appendChild(option);
-    });
-
-    if (currentValue && availableDepartments.includes(currentValue)) {
-        selectElement.value = currentValue;
-    }
-}
-
-// Llamar a loadDepartments cuando el DOM esté listo
-document.addEventListener('DOMContentLoaded', loadDepartments);
-
-function fetchPrivilegesAndShowVacations(username, role) {
-    fetch('/privilegios.json')
-        .then(response => response.json())
-        .then(privileges => {
-            const userPrivileges = privileges.roles?.[role]?.[username] || { departments: [] };
-            showVacations(userPrivileges.departments || []);
-        })
-        .catch(error => console.error('Error al obtener privilegios:', error));
-}
-
-function showVacations(allowedDepartments) {
-    fetch('/admin/personal', {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (allowedDepartments.includes('Todos')) {
-            personalData = data;
-        } else {
-            personalData = data.filter(emp => allowedDepartments.includes(emp.department_name));
-        }
-        filteredData = [...personalData];
-        populateDepartmentSelect('vacation-department-filter');
-        renderVacationTable(filteredData);
-        document.getElementById('vacations-module').style.display = 'block';
-    })
-    .catch(error => console.error('Error al cargar los datos de vacaciones:', error));
-}
-
-function searchVacation() {
-    const searchQuery = document.getElementById('vacation-search-input').value.toLowerCase();
-    const selectedDepartment = document.getElementById('vacation-department-filter').value;
-
-    const normalizedSearch = searchQuery.padStart(5, '0');
-
-    filteredData = personalData.filter(emp => {
-        const fullName = emp.full_name.toLowerCase();
-        const empNumberStr = emp.employee_number.toString();
-        const empNumberPadded = empNumberStr.padStart(5, '0');
-
-        const matchesSearchQuery =
-            fullName.includes(searchQuery) ||
-            empNumberStr.includes(searchQuery) ||
-            empNumberPadded.includes(searchQuery) ||
-            empNumberStr.includes(normalizedSearch) ||
-            empNumberPadded.includes(normalizedSearch);
-
-        const matchesDepartment = !selectedDepartment || emp.department_name === selectedDepartment;
-
-        return matchesSearchQuery && matchesDepartment;
-    });
-
-    renderVacationTable(filteredData);
-}
-
-
-function renderVacationTable(data) {
-    const tbody = document.querySelector('#vacation-table tbody');
-    tbody.innerHTML = '';
-
-    const role = document.getElementById('user-role').textContent; // Lee el rol desde el HTML en el front-end
-
-    data.forEach(emp => {
-        const yearsWorked = calculateYearsWorked(emp.start_date, emp.fecha_reingreso);
-        const vacationDays = calculateVacationDays(yearsWorked);
-        const daysPending = emp.days_pending || 0;
-        const daysTaken = emp.days_taken || 0;
-        const isEditing = editMode[emp.employee_number] || false;
-
-        let row = `
-            <tr>
-                <td>${emp.employee_number.toString().padStart(5, '0')}</td>
-                <td>${emp.department_name}</td>
-                <td>${emp.full_name}</td>
-                <td>${formatDate(emp.start_date)}</td>
-                <td>${emp.fecha_reingreso ? formatDate(emp.fecha_reingreso) : ''}</td>
-                <td>${vacationDays}</td>
-                <td>${isEditing ? `<input type="number" value="${daysPending}" min="0" max="60" id="pending-${emp.employee_number}">` : daysPending}</td>
-                <td>${isEditing ? `<input type="number" value="${daysTaken}" min="0" max="60" id="taken-${emp.employee_number}">` : daysTaken}</td>
-                <td>${vacationDays - daysTaken + daysPending}</td>
-                <td>`;
-
-        // Mostrar botones solo si el rol es "admin"
-        if (role === 'admin') {
-            row += `
-                <button class="edit-vacation-btn" onclick="toggleEditMode(${emp.employee_number})">
-                    ${isEditing ? 'Guardar' : 'Editar'}
-                </button>
-                <button class="export-btn" onclick="exportEmployeeData(${emp.employee_number})">Exportar</button>`;
-        }
-
-        row += `</td></tr>`;
-        tbody.insertAdjacentHTML('beforeend', row);
-    });
-}
-
-
-
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Fecha inválida';
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${day}-${month}-${year}`;
-}
-
-function toggleEditMode(employeeNumber) {
-    if (editMode[employeeNumber]) {
-        // Guardar cambios
-        const pendingInput = document.getElementById(`pending-${employeeNumber}`);
-        const takenInput = document.getElementById(`taken-${employeeNumber}`);
-        const vacationDaysCell = pendingInput.closest('tr').querySelectorAll('td')[5]; // Celda de días de vacaciones correspondientes
-
-        const pendingValue = parseInt(pendingInput.value);
-        const takenValue = parseInt(takenInput.value);
-
-        // Obtener los días de vacaciones directamente de la celda en la tabla (donde ya está calculado)
-        const vacationDays = parseInt(vacationDaysCell.textContent);
-
-        if (pendingValue >= 0 && pendingValue <= 60 && takenValue >= 0 && takenValue <= 60) {
-            const employee = personalData.find(emp => emp.employee_number === employeeNumber);
-            const newRemainingDays = vacationDays - takenValue + pendingValue;
-
-            const confirmMessage = `Los días restantes de vacaciones se actualizarán a ${newRemainingDays}. ¿Está seguro?`;
-
-            if (confirm(confirmMessage)) {
-                // Actualizar los valores
-                employee.days_pending = pendingValue;
-                employee.days_taken = takenValue;
-
-                // Recalcular los días restantes
-                employee.days_remaining = newRemainingDays;
-
-                // Llamar a la API para guardar en la base de datos
-                fetch(`/admin/personal/vacaciones/${employeeNumber}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify({
-                        days_pending: pendingValue,
-                        days_taken: takenValue
-                    })
-                })
-                .then(response => response.json())
-                .then(result => {
-                    alert(result.message);
-                    editMode[employeeNumber] = false;
-                    renderVacationTable(filteredData);  // Mantener el subconjunto filtrado
-                })
-                .catch(error => {
-                    console.error('Error al actualizar los datos de vacaciones:', error);
-                });
-            }
-        } else {
-            alert('Los valores deben estar entre 0 y 60.');
-        }
-    } else {
-        // Habilitar edición
-        editMode[employeeNumber] = true;
-        renderVacationTable(filteredData);  // Mantener el subconjunto filtrado
-    }
-}
-
-function sortTableBy(field) {
-    if (field === 'employee_number') {
-        filteredData.sort((a, b) => {
-            return sortDirection[field] 
-                ? a.employee_number - b.employee_number 
-                : b.employee_number - a.employee_number;
-        });
-    } else if (field === 'full_name') {
-        filteredData.sort((a, b) => {
-            return sortDirection[field] 
-                ? a.full_name.localeCompare(b.full_name) 
-                : b.full_name.localeCompare(a.full_name);
-        });
-    } else if (field === 'department_name') {
-        filteredData.sort((a, b) => {
-            return sortDirection[field] 
-                ? a.department_name.localeCompare(b.department_name) 
-                : b.department_name.localeCompare(a.department_name);
-        });
-    }
-
-    sortDirection[field] = !sortDirection[field]; // Alternar la dirección de la ordenación
-    renderVacationTable(filteredData); // Renderizar la tabla con los datos ordenados
-}
-
-function calculateYearsWorked(startDate, reentryDate) {
-    const fechaInicio = reentryDate ? new Date(reentryDate) : new Date(startDate);
-    const fechaActual = new Date();
-
-    let yearsWorked = fechaActual.getFullYear() - fechaInicio.getFullYear();
-    let monthDiff = fechaActual.getMonth() - fechaInicio.getMonth();
-    let dayDiff = fechaActual.getDate() - fechaInicio.getDate();
-
-    if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
-        yearsWorked--;
-    }
-    return yearsWorked;
-}
-
-function calculateVacationDays(yearsWorked) {
-    if (yearsWorked < 1) return 0;
-    if (yearsWorked === 1) return 12;
-    if (yearsWorked === 2) return 14;
-    if (yearsWorked === 3) return 16;
-    if (yearsWorked === 4) return 18;
-    if (yearsWorked === 5) return 20;
-    if (yearsWorked >= 6 && yearsWorked <= 10) return 22;
-    if (yearsWorked >= 11 && yearsWorked <= 15) return 24;
-    if (yearsWorked >= 16 && yearsWorked <= 20) return 26;
-    if (yearsWorked >= 21 && yearsWorked <= 25) return 28;
-    if (yearsWorked >= 26 && yearsWorked <= 30) return 30;
-    if (yearsWorked >= 31) return 32; 
-    return 0;
-}
-
-function escapeCSVField(value) {
-    if (typeof value === 'string') {
-        return `"${value.replace(/"/g, '""')}"`;
-    }
-    return value;
-}
-
-function exportEmployeeData(employeeNumber) {
-    const employee = personalData.find(emp => emp.employee_number === employeeNumber);
-
-    // Crear un array con los datos que se van a exportar, excluyendo la columna "Acciones"
-    const data = [
-        ["ID", "Nombre", "Departamento", "Fecha de Ingreso", "Fecha de Reingreso", "Días de Vacaciones Correspondientes", "Días Pendientes", "Días Tomados", "Días Restantes"],
-        [
-            employee.employee_number.toString().padStart(5, '0'),
-            employee.full_name,
-            employee.department_name,
-            formatDate(employee.start_date),
-            employee.fecha_reingreso ? formatDate(employee.fecha_reingreso) : '',
-            calculateVacationDays(calculateYearsWorked(employee.start_date, employee.fecha_reingreso)),
-            employee.days_pending || 0,
-            employee.days_taken || 0,
-            calculateVacationDays(calculateYearsWorked(employee.start_date, employee.fecha_reingreso)) - (employee.days_taken || 0) + (employee.days_pending || 0)
-        ]
-    ];
-
-    // Crear la hoja de Excel con los datos
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, `Empleado_${employee.employee_number}`);
-
-    // Descargar el archivo Excel
-    XLSX.writeFile(wb, `Empleado_${employee.employee_number}.xlsx`);
-}
-
-
-function exportAllEmployeesData() {
-    let csvContent = '\uFEFF' + `ID,Nombre,Fecha de Ingreso,Días Correspondientes,Días Pendientes,Días Tomados,Días Restantes\n`;
-
-    personalData.forEach(employee => {
-        const yearsWorked = calculateYearsWorked(employee.start_date);
-        const vacationDays = calculateVacationDays(yearsWorked);
-        const daysPending = employee.days_pending || 0;
-        const daysTaken = employee.days_taken || 0;
-        const daysRemaining = vacationDays - daysTaken + daysPending;
-
-        const fullName = escapeCSVField(employee.full_name);
-
-        csvContent += `${employee.employee_number},${fullName},${formatDate(employee.start_date)},${vacationDays},${daysPending},${daysTaken},${daysRemaining}\n`;
-    });
-
-    // Crea un Blob y descarga el archivo como antes
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Empleados_Todos.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-function exportarVacacionesExcel() {
-    const table = document.getElementById('vacation-table');
-    let data = [];
-    
-    // Obtener los encabezados de la tabla
-    let headers = [];
-    for (let j = 0; j < table.rows[0].cells.length; j++) {
-        headers.push(table.rows[0].cells[j].innerText);
-    }
-    data.push(headers);
-
-    // Obtener los datos de la tabla
-    for (let i = 1; i < table.rows.length; i++) {
-        let rowData = [];
-        for (let j = 0; j < table.rows[i].cells.length - 1; j++) { // Excluir la columna "Acciones"
-            let cell = table.rows[i].cells[j];
-            rowData.push(cell.innerText); // Obtener el texto de cada celda
-        }
-        data.push(rowData);
-    }
-
-    // Generar el archivo Excel
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Vacaciones');
-
-    // Descargar el archivo Excel
-    XLSX.writeFile(wb, 'vacaciones.xlsx');
-}
-
-
-    // Lógica para obtener y filtrar vacaciones
-    function fetchPrivilegesAndShowVacations(username, role) {
-        fetch('/privilegios.json')
-            .then(response => response.json())
-            .then(privileges => {
-                const userPrivileges = privileges.roles?.[role]?.[username] || { departments: [] };
-                showVacations(userPrivileges.departments || []);
-
-                // Llama a handleVacationEditButtons con el rol del usuario
-                handleVacationEditButtons(role);
-            })
-            .catch(error => console.error('Error al obtener privilegios:', error));
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-    const tableContainer = document.querySelector('.table-container');
-
-    let isDragging = false;
-    let startX, scrollLeft;
-
-    tableContainer.addEventListener('mousedown', (e) => {
-        isDragging = true;
-        startX = e.pageX - tableContainer.offsetLeft;
-        scrollLeft = tableContainer.scrollLeft;
-        tableContainer.style.cursor = 'grabbing';
-    });
-
-    tableContainer.addEventListener('mouseleave', () => {
-        isDragging = false;
-        tableContainer.style.cursor = 'grab';
-    });
-
-    tableContainer.addEventListener('mouseup', () => {
-        isDragging = false;
-        tableContainer.style.cursor = 'grab';
-    });
-
-    tableContainer.addEventListener('mousemove', (e) => {
-        if (!isDragging) return; // Solo arrastrar si está presionado el botón del ratón
-        e.preventDefault();
-        const x = e.pageX - tableContainer.offsetLeft; // Coordenada horizontal
-        const walk = x - startX; // Desplazamiento horizontal
-        tableContainer.scrollLeft = scrollLeft - walk;
-    });
-});
-
-
-// Lógica para cerrar sesión
-function logout() {
-    localStorage.removeItem('token');
-    window.location.href = '/login.html';
-}
-
-
-        </script>
-
-    </body>
+    <script src="vacaciones.js"></script>
+</body>
 </html>

@@ -1452,3 +1452,240 @@ footer {
 .system-actions {
     align-items: center;
 }
+
+/* ===== Vacaciones 1.8 ===== */
+.vac18-page .toolbar a.active {
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.25) inset;
+}
+
+.vac18-module {
+    display: block;
+}
+
+.vac18-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.vac18-subtitle {
+    margin: 8px 0 0;
+    color: #4b5563;
+}
+
+.vac18-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.vac18-badge,
+.vac18-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-size: 13px;
+    background: #e6f0ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+}
+
+.vac18-badge-secondary {
+    background: #f3f4f6;
+    color: #374151;
+    border-color: #d1d5db;
+}
+
+.vac18-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+    padding: 18px;
+    margin-bottom: 18px;
+}
+
+.vac18-card-title {
+    font-weight: 700;
+    margin-bottom: 14px;
+    color: #0f172a;
+}
+
+.vac18-grid {
+    display: grid;
+    gap: 16px;
+}
+
+.vac18-grid-filters {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.vac18-grid-admin {
+    grid-template-columns: 1.4fr 1fr;
+    align-items: end;
+}
+
+.vac18-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.vac18-field label {
+    font-weight: 600;
+    color: #334155;
+}
+
+.vac18-field input,
+.vac18-field select {
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 14px;
+    background: #fff;
+}
+
+.vac18-field small {
+    color: #64748b;
+}
+
+.vac18-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.vac18-actions button,
+.vac18-row-actions button {
+    border: none;
+    border-radius: 10px;
+    padding: 10px 14px;
+    background: #2563eb;
+    color: #fff;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.vac18-actions button.secondary,
+.vac18-row-actions button.secondary {
+    background: #475569;
+}
+
+.vac18-actions button.success {
+    background: #16a34a;
+}
+
+.vac18-row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.vac18-row-actions button.small {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+.vac18-actions button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.vac18-feedback {
+    margin-top: 14px;
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+    min-height: 20px;
+}
+
+.vac18-feedback.success {
+    background: #ecfdf5;
+    color: #166534;
+    border-color: #bbf7d0;
+}
+
+.vac18-feedback.warning,
+.vac18-chip.warning {
+    background: #fff7ed;
+    color: #c2410c;
+    border-color: #fdba74;
+}
+
+.vac18-feedback.danger,
+.vac18-chip.danger {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fecaca;
+}
+
+.vac18-chip.success {
+    background: #ecfdf5;
+    color: #166534;
+    border-color: #bbf7d0;
+}
+
+.vac18-summary-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.vac18-table-container {
+    overflow: auto;
+}
+
+.vac18-main-table,
+.vac18-preview-table {
+    width: 100%;
+    min-width: 980px;
+    border-collapse: collapse;
+}
+
+.vac18-main-table th,
+.vac18-main-table td,
+.vac18-preview-table th,
+.vac18-preview-table td {
+    border-bottom: 1px solid #e5e7eb;
+    padding: 12px 10px;
+    text-align: left;
+    vertical-align: top;
+    font-size: 14px;
+}
+
+.vac18-main-table thead th,
+.vac18-preview-table thead th {
+    position: sticky;
+    top: 0;
+    background: #eff6ff;
+    z-index: 1;
+    color: #1e3a8a;
+}
+
+.vac18-main-table tbody tr:hover,
+.vac18-preview-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+.vac18-empty-state {
+    padding: 18px;
+    border-radius: 12px;
+    background: #f8fafc;
+    color: #475569;
+    margin-bottom: 14px;
+}
+
+@media (max-width: 900px) {
+    .vac18-grid-admin {
+        grid-template-columns: 1fr;
+    }
+}

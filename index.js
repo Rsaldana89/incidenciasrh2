@@ -4,6 +4,7 @@ const port = 3000;
 
 const db = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
+const vacationRoutes = require('./routes/vacationRoutes');
 const jwt = require('jsonwebtoken');
 
 const mysqldump = require('mysqldump');
@@ -390,6 +391,7 @@ app.get('/privilegios.json', async (req, res) => {
 });
 
 app.use('/auth', authRoutes);
+app.use('/api/vacations', vacationRoutes);
 
 app.get('/api/admin/system/bootstrap', authenticateToken, requireAdminCurrentUser, async (req, res) => {
     try {
@@ -683,11 +685,11 @@ app.get('/dashboard', authenticateToken, async (req, res) => {
             role: currentUser.role,
             all_departments: !!currentUser.all_departments,
             departments,
-            version: '1.6',
+            version: '1.8',
         });
     } catch (error) {
         console.error('Error al construir el contexto de sesión:', error);
-        res.json({ username: req.user.username, full_name: req.user.full_name, role: req.user.role, all_departments: false, departments: [], version: '1.6' });
+        res.json({ username: req.user.username, full_name: req.user.full_name, role: req.user.role, all_departments: false, departments: [], version: '1.8' });
     }
 });
 
