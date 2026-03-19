@@ -3,72 +3,29 @@ require('dotenv').config();
 
 const mysql = require('mysql2');
 
-let connection;
-let isConnecting = false;
-let reconnectTimer = null;
+// Crear un pool de conexiones a la base de datos usando las variables de entorno
+const pool = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  maxIdle: 10,
+  idleTimeout: 60000,
+  queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0
+});
 
-function createConnection() {
-  return mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-  });
-}
+// Validar la conexión inicial al arrancar
+pool.getConnection((err, connection) => {
+  if (err) {
+    console.error('Error al conectar a la base de datos:', err.stack || err);
+    return;
+  }
+  console.log('Conectado a la base de datos.');
+  connection.release();
+});
 
-function scheduleReconnect(delayMs = 5000) {
-  if (reconnectTimer || isConnecting) return;
-
-  reconnectTimer = setTimeout(() => {
-    reconnectTimer = null;
-    handleDisconnect();
-  }, delayMs);
-}
-
-function handleDisconnect() {
-  if (isConnecting) return;
-  isConnecting = true;
-
-  connection = createConnection();
-
-  connection.connect((err) => {
-    isConnecting = false;
-
-    if (err) {
-      console.error('Error al conectar a la base de datos:', err);
-      scheduleReconnect();
-      return;
-    }
-
-    console.log('Conectado a la base de datos.');
-  });
-
-  connection.on('error', (err) => {
-    console.error('Error de MySQL:', err);
-
-    const recoverableErrors = [
-      'PROTOCOL_CONNECTION_LOST',
-      'ECONNRESET',
-      'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR',
-      'PROTOCOL_ENQUEUE_AFTER_QUIT',
-      'PROTOCOL_INCORRECT_PACKET_SEQUENCE',
-    ];
-
-    if (recoverableErrors.includes(err.code)) {
-      console.log('Reconectando a MySQL...');
-      scheduleReconnect(1000);
-      return;
-    }
-
-    throw err;
-  });
-}
-
-handleDisconnect();
-
-module.exports = {
-  query: (...args) => connection.query(...args),
-  execute: (...args) => connection.execute(...args),
-  end: (...args) => connection.end(...args),
-  getConnection: () => connection,
-};
+module.exports = pool;
