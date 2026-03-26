@@ -71,6 +71,14 @@
                         <label for="filter-name">Nombre del empleado</label>
                         <input type="text" id="filter-name" placeholder="Buscar por nombre">
                     </div>
+
+                    <!-- Nuevo filtro: mostrar/ocultar empleados dados de baja. Por defecto este checkbox no está marcado,
+                         de modo que los empleados con departamento o estatus "baja" no se muestran en la tabla. Al marcar
+                         la casilla se incluirán en el listado. Se agrupan los elementos en una fila usando flexbox. -->
+                    <div class="vac18-field" style="flex-direction: row; align-items: center; gap: 10px; margin-top: 12px;">
+                        <input type="checkbox" id="show-baja-checkbox">
+                        <label for="show-baja-checkbox" style="margin: 0; font-weight: 600;">Mostrar empleados dados de baja</label>
+                    </div>
                 </div>
                 <div class="vac18-actions">
                     <button type="button" id="btn-search">Buscar</button>
@@ -149,7 +157,12 @@
                 <div id="vacation-empty-state" class="vac18-empty-state" hidden>
                     No hay empleados para los filtros seleccionados o aún no se han cargado saldos de vacaciones.
                 </div>
-                <div class="table-container vac18-table-container" id="vacation-table-container">
+
+                <!-- Contenedor para las tarjetas de empleados de vacaciones -->
+                <div id="vacation-cards-container" class="vac18-cards-container"></div>
+
+                <!-- Mantenemos la tabla oculta para posibles exportaciones o funcionalidades internas -->
+                <div class="table-container vac18-table-container" id="vacation-table-container" style="display: none;">
                     <table id="vacation-table" class="vac18-main-table">
                         <thead>
                             <tr>

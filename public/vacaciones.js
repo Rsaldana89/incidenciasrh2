@@ -4,6 +4,10 @@ const vacationState = {
     departments: [],
     preview: null,
     logsVisible: false,
+    // Copias de los datos brutos devueltos por el servidor. Se usan para volver a aplicar filtros
+    // (por ejemplo, mostrar/ocultar empleados en BAJA) sin tener que solicitar de nuevo los datos.
+    rawRows: [],
+    rawDepartments: [],
 };
 
 function getToken() {
@@ -109,6 +113,38 @@ function updateVisibleCount() {
     label.textContent = `${vacationState.rows.length} empleado(s) visibles`;
 }
 
+/**
+ * Aplica el filtro de empleados dados de baja según el estado del checkbox
+ * y actualiza el estado de filas y departamentos visibles. Se invoca después
+ * de cargar datos desde el servidor o al cambiar el checkbox.
+ */
+function applyFiltersAndRender() {
+    // Determinar si el usuario quiere incluir a empleados dados de baja.
+    const checkbox = document.getElementById('show-baja-checkbox');
+    const includeBaja = checkbox && checkbox.checked;
+
+    let rows = vacationState.rawRows.slice();
+    let departments = vacationState.rawDepartments.slice();
+
+    // Filtrar empleados cuyo departamento (o estatus) sea 'baja' (ignorando mayúsculas/minúsculas).
+    if (!includeBaja) {
+        rows = rows.filter((row) => {
+            const dep = String(row.department || '').trim().toLowerCase();
+            return dep !== 'baja';
+        });
+        departments = departments.filter((d) => {
+            return String(d || '').trim().toLowerCase() !== 'baja';
+        });
+    }
+
+    vacationState.rows = rows;
+    vacationState.departments = departments;
+
+    populateDepartments(departments);
+    renderVacationRows(rows);
+    updateVisibleCount();
+}
+
 function getCurrentFilters() {
     return {
         department: document.getElementById('filter-department').value.trim(),
@@ -149,29 +185,81 @@ function populateDepartments(departments) {
 }
 
 function renderVacationRows(rows) {
+    // Contenedor de tarjetas para la interfaz renovada (v1.93)
+    const cardsContainer = document.getElementById('vacation-cards-container');
+    if (cardsContainer) {
+        cardsContainer.innerHTML = '';
+    }
+    // También limpiamos la tabla oculta para evitar residuos en caso de que se reutilice para exportaciones.
     const tbody = document.querySelector('#vacation-table tbody');
-    tbody.innerHTML = '';
+    if (tbody) {
+        tbody.innerHTML = '';
+    }
 
     rows.forEach((row) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${escapeHtml(row.employee_code)}</td>
-            <td>${escapeHtml(row.name)}</td>
-            <td>${escapeHtml(row.department || '')}</td>
-            <td>${escapeHtml(formatDate(row.join_date))}</td>
-            <td>${escapeHtml(formatDate(row.reentry_date))}</td>
-            <td>${escapeHtml(row.pending_previous_days)}</td>
-            <td>${escapeHtml(row.current_period_days)}</td>
-            <td>${escapeHtml(row.total_remaining_days)}</td>
-            <td>
-                <div class="vac18-row-actions">
+        // Rellenamos la tabla oculta si está presente (por compatibilidad con funciones existentes)
+        if (tbody) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${escapeHtml(row.employee_code)}</td>
+                <td>${escapeHtml(row.name)}</td>
+                <td>${escapeHtml(row.department || '')}</td>
+                <td>${escapeHtml(formatDate(row.join_date))}</td>
+                <td>${escapeHtml(formatDate(row.reentry_date))}</td>
+                <td>${escapeHtml(row.pending_previous_days)}</td>
+                <td>${escapeHtml(row.current_period_days)}</td>
+                <td>${escapeHtml(row.total_remaining_days)}</td>
+                <td>
+                    <div class="vac18-row-actions">
+                        <button type="button" class="secondary small" data-action="excel" data-employee="${row.employee_number}">Excel</button>
+                        <button type="button" class="secondary small" data-action="pdf" data-employee="${row.employee_number}">PDF</button>
+                        <button type="button" class="secondary small" data-action="print" data-employee="${row.employee_number}">Imprimir</button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        // Construir tarjeta para la nueva visualización
+        if (cardsContainer) {
+            const card = document.createElement('div');
+            card.classList.add('vacation-card');
+            card.innerHTML = `
+                <div class="vacation-card-header">
+                    <span class="employee-id">${escapeHtml(row.employee_code)}</span>
+                    <span class="employee-name">${escapeHtml(row.name)}</span>
+                    <span class="employee-department">${escapeHtml(row.department || '')}</span>
+                </div>
+                <div class="vacation-card-body">
+                    <div class="vacation-card-field">
+                        <span class="label">Fecha ingreso</span>
+                        <span class="value">${escapeHtml(formatDate(row.join_date)) || '-'}</span>
+                    </div>
+                    <div class="vacation-card-field">
+                        <span class="label">Fecha reingreso</span>
+                        <span class="value">${escapeHtml(formatDate(row.reentry_date)) || '-'}</span>
+                    </div>
+                    <div class="vacation-card-field">
+                        <span class="label">Pendientes anteriores</span>
+                        <span class="value">${escapeHtml(row.pending_previous_days)}</span>
+                    </div>
+                    <div class="vacation-card-field">
+                        <span class="label">Periodo actual</span>
+                        <span class="value">${escapeHtml(row.current_period_days)}</span>
+                    </div>
+                    <div class="vacation-card-field">
+                        <span class="label">Total restante</span>
+                        <span class="value">${escapeHtml(row.total_remaining_days)}</span>
+                    </div>
+                </div>
+                <div class="vacation-card-actions vac18-row-actions">
                     <button type="button" class="secondary small" data-action="excel" data-employee="${row.employee_number}">Excel</button>
                     <button type="button" class="secondary small" data-action="pdf" data-employee="${row.employee_number}">PDF</button>
                     <button type="button" class="secondary small" data-action="print" data-employee="${row.employee_number}">Imprimir</button>
                 </div>
-            </td>
-        `;
-        tbody.appendChild(tr);
+            `;
+            cardsContainer.appendChild(card);
+        }
     });
 
     document.getElementById('vacation-empty-state').hidden = rows.length > 0;
@@ -356,11 +444,11 @@ async function loadVacations() {
     const url = queryString ? `/api/vacations?${queryString}` : '/api/vacations';
 
     const response = await apiRequest(url, { method: 'GET' });
-    vacationState.rows = response.data || [];
-    vacationState.departments = response.departments || [];
-    populateDepartments(vacationState.departments);
-    renderVacationRows(vacationState.rows);
-    updateVisibleCount();
+    // Guardar los datos completos y los departamentos originales para permitir aplicar filtros locales.
+    vacationState.rawRows = response.data || [];
+    vacationState.rawDepartments = response.departments || [];
+    // Aplicar filtros locales (por ejemplo ocultar empleados en BAJA) y renderizar.
+    applyFiltersAndRender();
 }
 
 async function loadImportLogs() {
@@ -391,6 +479,14 @@ async function initializePage() {
         }
 
         await loadVacations();
+
+        // Suscribirse al cambio del checkbox para incluir/excluir empleados en BAJA.
+        const bajaCheckbox = document.getElementById('show-baja-checkbox');
+        if (bajaCheckbox) {
+            bajaCheckbox.addEventListener('change', () => {
+                applyFiltersAndRender();
+            });
+        }
     } catch (error) {
         alert(error.message || 'No se pudo cargar la sesión actual.');
         localStorage.removeItem('token');
@@ -518,6 +614,27 @@ function attachEvents() {
             printRows([row], `Vacaciones ${row.employee_code}`);
         }
     });
+
+    // También asignamos las acciones de exportar/descargar/imprimir a las tarjetas de empleados.
+    const cardsContainer = document.getElementById('vacation-cards-container');
+    if (cardsContainer) {
+        cardsContainer.addEventListener('click', (event) => {
+            const button = event.target.closest('button[data-action]');
+            if (!button) return;
+            const employeeNumber = button.dataset.employee;
+            const row = getRowByEmployee(employeeNumber);
+            if (!row) return;
+            if (button.dataset.action === 'excel') {
+                exportRowsToExcel([row], `vacaciones_${row.employee_code}.xlsx`);
+            }
+            if (button.dataset.action === 'pdf') {
+                exportRowsToPdf([row], `Vacaciones ${row.employee_code}`);
+            }
+            if (button.dataset.action === 'print') {
+                printRows([row], `Vacaciones ${row.employee_code}`);
+            }
+        });
+    }
 
     const adminPanel = document.getElementById('admin-panel');
     if (adminPanel) {

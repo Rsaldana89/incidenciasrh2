@@ -638,7 +638,10 @@ async function importVacations(req, res) {
         return res.status(400).json({ error: 'Selecciona un archivo Excel para importar.' });
     }
 
-    const connection = db.promise();
+    // Obtener una conexión dedicada desde el pool. Usamos getConnection() para poder
+    // iniciar y gestionar transacciones (beginTransaction, commit, rollback). Si
+    // usamos directamente db.promise() no disponemos de beginTransaction.
+    const connection = await db.promise().getConnection();
 
     try {
         const parsed = parseVacationWorkbook(req.file.buffer);
@@ -650,6 +653,7 @@ async function importVacations(req, res) {
         let inserted = 0;
         let updated = 0;
 
+        // Iniciar la transacción en la conexión obtenida
         await connection.beginTransaction();
 
         for (const record of readyRecords) {
@@ -720,6 +724,8 @@ async function importVacations(req, res) {
         );
 
         await connection.commit();
+        // Liberar la conexión de vuelta al pool
+        connection.release();
 
         res.json({
             message: 'Importación de vacaciones completada correctamente.',
@@ -738,6 +744,12 @@ async function importVacations(req, res) {
             await connection.rollback();
         } catch (rollbackError) {
             console.error('Error al revertir importación de vacaciones:', rollbackError);
+        }
+        // Asegurarnos de liberar la conexión incluso si hay un error
+        try {
+            connection.release();
+        } catch (releaseError) {
+            console.error('Error al liberar la conexión tras fallo en importación:', releaseError);
         }
         console.error('Error al importar vacaciones:', error);
         res.status(400).json({ error: error.message || 'No se pudo importar el archivo de vacaciones.' });

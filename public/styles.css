@@ -1522,7 +1522,11 @@ footer {
 }
 
 .vac18-grid-filters {
+    /* Ajustamos el ancho mínimo y los espacios entre los filtros para que no queden apelmazados.
+       Al usar un mínimo de 220px, cada campo tiene más aire y la cuadrícula envuelve de forma natural en pantallas medianas o pequeñas.
+       El gap de 20px separa mejor vertical y horizontalmente los elementos. */
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
 }
 
 .vac18-grid-admin {
@@ -1688,4 +1692,77 @@ footer {
     .vac18-grid-admin {
         grid-template-columns: 1fr;
     }
+}
+
+/* ---------- Tarjetas de vacaciones (versión 1.93) ---------- */
+/* Contenedor de tarjetas: las tarjetas se apilan verticalmente con espacio entre ellas. */
+.vac18-cards-container {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+/* Diseño de cada tarjeta de vacaciones. Inspirado en el estilo del KPI manager para mejorar legibilidad. */
+.vacation-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Cabecera de la tarjeta con el código del empleado, nombre y departamento. */
+.vacation-card-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+.vacation-card-header .employee-id {
+    font-weight: 700;
+    color: #1e3a8a;
+    font-size: 0.9rem;
+}
+.vacation-card-header .employee-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+.vacation-card-header .employee-department {
+    font-size: 0.85rem;
+    color: #64748b;
+    font-weight: 600;
+}
+
+/* Cuerpo de la tarjeta: muestra diferentes datos distribuidos en columnas flexibles. */
+.vacation-card-body {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+}
+.vacation-card-field {
+    display: flex;
+    flex-direction: column;
+}
+.vacation-card-field .label {
+    font-size: 0.75rem;
+    color: #64748b;
+    font-weight: 600;
+}
+.vacation-card-field .value {
+    font-size: 0.9rem;
+    color: #334155;
+    font-weight: 500;
+}
+
+/* Acciones dentro de la tarjeta: reutiliza el estilo de vac18-row-actions para coherencia. */
+.vacation-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
 }

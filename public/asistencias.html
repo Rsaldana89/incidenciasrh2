@@ -939,7 +939,10 @@ function renderAttendanceTable(data) {
 
 // Función para generar un combobox con el valor predeterminado de la base de datos
 function renderComboBox(fieldName, value, options = [ "1", "F", "0.5TE", "1TE", "2TE", "3TE", "DT", "DFT", "VAC", "INC"]) {
-    const restrictedSundayOptions = ['DT', 'VAC'];
+    // Para los domingos se deben deshabilitar únicamente "F" (falta) y "VAC" (vacaciones).
+    // Anteriormente también se restringía "DT" (descanso trabajado), lo cual impedía
+    // capturar descansos trabajados en domingo. Ahora permitimos seleccionar DT los domingos.
+    const restrictedSundayOptions = ['F', 'VAC'];
     const normalizedValue = value == null || value === '' ? '1' : String(value);
 
     let availableOptions = [...options];
