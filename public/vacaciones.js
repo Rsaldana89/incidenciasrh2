@@ -146,11 +146,22 @@ function applyFiltersAndRender() {
 }
 
 function getCurrentFilters() {
-    return {
+    const filters = {
         department: document.getElementById('filter-department').value.trim(),
-        employee_code: document.getElementById('filter-employee').value.trim(),
-        name: document.getElementById('filter-name').value.trim(),
     };
+    // Tomar el valor del campo unificado y determinar si es un ID numérico o un nombre.
+    const searchValueEl = document.getElementById('filter-search');
+    const searchValue = searchValueEl ? searchValueEl.value.trim() : '';
+    if (searchValue) {
+        // Si contiene solo dígitos, se trata como código de empleado; de lo contrario, como nombre.
+        const isNumeric = /^\d+$/.test(searchValue);
+        if (isNumeric) {
+            filters.employee_code = searchValue;
+        } else {
+            filters.name = searchValue;
+        }
+    }
+    return filters;
 }
 
 function buildQueryString(filters) {
@@ -172,7 +183,17 @@ function populateDepartments(departments) {
         ? [currentValue, ...departments]
         : [...departments];
 
-    [...new Set(values)].forEach((department) => {
+    // Eliminar duplicados y ordenar alfabéticamente dejando "Baja" al final
+    let unique = [...new Set(values)];
+    unique = unique.sort((a, b) => {
+        const aLower = String(a || '').toLowerCase();
+        const bLower = String(b || '').toLowerCase();
+        if (aLower === 'baja' && bLower !== 'baja') return 1;
+        if (bLower === 'baja' && aLower !== 'baja') return -1;
+        return aLower.localeCompare(bLower);
+    });
+
+    unique.forEach((department) => {
         const option = document.createElement('option');
         option.value = department;
         option.textContent = department;
@@ -565,21 +586,20 @@ function attachEvents() {
     document.getElementById('btn-search').addEventListener('click', () => loadVacations().catch((error) => alert(error.message)));
     document.getElementById('btn-clear').addEventListener('click', async () => {
         document.getElementById('filter-department').value = '';
-        document.getElementById('filter-employee').value = '';
-        document.getElementById('filter-name').value = '';
+        const searchInput = document.getElementById('filter-search');
+        if (searchInput) searchInput.value = '';
         await loadVacations();
     });
 
-    document.getElementById('filter-employee').addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-            loadVacations().catch((error) => alert(error.message));
-        }
-    });
-    document.getElementById('filter-name').addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-            loadVacations().catch((error) => alert(error.message));
-        }
-    });
+    // Permitir la búsqueda al pulsar Enter en el campo de búsqueda unificado
+    const unifiedSearchInput = document.getElementById('filter-search');
+    if (unifiedSearchInput) {
+        unifiedSearchInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                loadVacations().catch((error) => alert(error.message));
+            }
+        });
+    }
 
     document.getElementById('btn-export-excel').addEventListener('click', () => {
         exportRowsToExcel(vacationState.rows, 'vacaciones_visibles_1_8.xlsx');

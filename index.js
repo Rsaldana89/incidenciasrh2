@@ -803,6 +803,10 @@ app.post('/admin/personal', authenticateToken, (req, res) => {
     if (!employee_number || !full_name || !department_name || !start_date) {
         return res.status(400).json({ error: 'Todos los campos obligatorios deben estar presentes' });
     }
+
+    if ((department_name || '').trim().toLowerCase() === 'baja') {
+        return res.status(400).json({ error: 'El departamento Baja solo puede asignarse usando el botón de baja.' });
+    }
     
     const safeEmail = (email === undefined || email === '') ? null : email;
 
@@ -853,6 +857,92 @@ app.post('/admin/personal', authenticateToken, (req, res) => {
     });
 });
 
+
+app.post('/admin/personal/bulk-email-update', authenticateToken, (req, res) => {
+    const updates = Array.isArray(req.body) ? req.body : req.body.updates;
+
+    if (!Array.isArray(updates) || updates.length === 0) {
+        return res.status(400).json({ error: 'No se enviaron actualizaciones de correo válidas.' });
+    }
+
+    const normalizedUpdates = updates
+        .map(item => {
+            const employeeNumberRaw = item.employee_number ?? item.employeeNumber ?? item.Código ?? item.Codigo ?? item.codigo ?? item.id;
+            const digits = String(employeeNumberRaw ?? '').replace(/\D/g, '');
+            const normalizedEmployeeNumber = digits ? parseInt(digits, 10) : null;
+            const email = String(item.email ?? item.correo ?? item['Correo electrónico'] ?? item['Correo electronico'] ?? '').trim().toLowerCase();
+            return {
+                employee_number: normalizedEmployeeNumber,
+                email,
+            };
+        })
+        .filter(item => item.employee_number && item.email);
+
+    if (normalizedUpdates.length === 0) {
+        return res.status(400).json({ error: 'No se encontraron filas válidas con ID y correo.' });
+    }
+
+    const uniqueUpdatesMap = new Map();
+    normalizedUpdates.forEach(item => {
+        uniqueUpdatesMap.set(item.employee_number, item.email);
+    });
+
+    const employeeNumbers = Array.from(uniqueUpdatesMap.keys());
+
+    db.query('SELECT employee_number FROM personal WHERE employee_number IN (?)', [employeeNumbers], (selectErr, rows) => {
+        if (selectErr) {
+            console.error('Error al consultar empleados para actualización masiva de correos:', selectErr);
+            return res.status(500).json({ error: 'Error al validar los empleados para actualización de correos.' });
+        }
+
+        const existingSet = new Set(rows.map(row => Number(row.employee_number)));
+        const foundIds = employeeNumbers.filter(id => existingSet.has(Number(id)));
+        const notFound = employeeNumbers.length - foundIds.length;
+        const skipped = normalizedUpdates.length - employeeNumbers.length;
+
+        if (foundIds.length === 0) {
+            return res.json({
+                message: 'No se encontró ningún empleado para actualizar.',
+                updated: 0,
+                not_found: notFound,
+                skipped,
+            });
+        }
+
+        const caseStatements = foundIds.map(() => 'WHEN ? THEN ?').join(' ');
+        const queryParams = [];
+        foundIds.forEach(id => {
+            queryParams.push(id, uniqueUpdatesMap.get(id));
+        });
+        queryParams.push(...foundIds);
+
+        const updateQuery = `
+            UPDATE personal
+            SET email = CASE employee_number ${caseStatements} END
+            WHERE employee_number IN (${foundIds.map(() => '?').join(',')})
+        `;
+
+        db.query(updateQuery, queryParams, (updateErr, result) => {
+            if (updateErr) {
+                console.error('Error al actualizar correos masivamente:', updateErr);
+                return res.status(500).json({ error: 'Error al actualizar los correos masivamente.' });
+            }
+
+            logActivity('Actualización masiva de correos', req.user.username, {
+                total_recibidos: normalizedUpdates.length,
+                actualizados: result.affectedRows,
+                no_encontrados: notFound,
+            });
+
+            res.json({
+                message: 'Correos actualizados correctamente.',
+                updated: result.affectedRows,
+                not_found: notFound,
+                skipped,
+            });
+        });
+    });
+});
 
 app.post('/admin/personal/bulk', authenticateToken, (req, res) => {
     const employees = req.body; // Se espera un array de empleados
@@ -1080,6 +1170,10 @@ app.put('/admin/personal/:employee_number', authenticateToken, (req, res) => {
         fecha_baja, 
         fecha_reingreso 
     } = req.body;
+
+    if ((department_name || '').trim().toLowerCase() === 'baja') {
+        return res.status(400).json({ error: 'El departamento Baja solo puede asignarse usando el botón de baja.' });
+    }
 
     const safeEmail = (email === undefined || email === '') ? null : email;
 

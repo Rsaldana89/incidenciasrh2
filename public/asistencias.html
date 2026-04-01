@@ -954,7 +954,7 @@ function renderComboBox(fieldName, value, options = [ "1", "F", "0.5TE", "1TE", 
         fieldName === 'DOMINGO' && restrictedSundayOptions.includes(normalizedValue);
 
     const legacySundayOptionHTML = currentValueIsRestrictedOnSunday
-        ? `<option value="${normalizedValue}" selected disabled>${normalizedValue} (no disponible en domingo)</option>`
+        ? `<option value="${normalizedValue}" selected disabled title="${normalizedValue} no disponible en domingo">${normalizedValue}</option>`
         : '';
 
     const optionsHTML = availableOptions.map(option => {
@@ -1148,6 +1148,8 @@ function toggleEdit(button) {
     }
 
     // 4. Salir del modo edición visualmente
+    const currentRow = button.closest('tr');
+    if (currentRow) currentRow.classList.remove('row-editing');
     inputs.forEach(input => input.disabled = true);
     button.textContent = 'Editar';
     isRowBeingEdited = false;
@@ -1165,6 +1167,8 @@ function toggleEdit(button) {
 
 // Modo "Editar"
 } else {
+    const row = button.closest('tr');
+    if (row) row.classList.add('row-editing');
     inputs.forEach(input => input.disabled = false);
     button.textContent = 'Guardar';
     isRowBeingEdited = true;

@@ -203,8 +203,20 @@ function getSelectedDepartmentIds() {
 async function refreshSystemData() {
     const payload = await apiRequest('/api/admin/system/bootstrap');
     systemState.users = payload.users || [];
-    systemState.departments = payload.departments || [];
-    systemState.positions = payload.positions || [];
+    // Ordenar departamentos alfabéticamente, dejando "Baja" al final
+    let departments = payload.departments || [];
+    departments = departments.slice().sort((a, b) => {
+        const aLower = (a.name || '').toLowerCase();
+        const bLower = (b.name || '').toLowerCase();
+        if (aLower === 'baja' && bLower !== 'baja') return 1;
+        if (bLower === 'baja' && aLower !== 'baja') return -1;
+        return aLower.localeCompare(bLower);
+    });
+    systemState.departments = departments;
+    // Ordenar puestos alfabéticamente
+    let positions = payload.positions || [];
+    positions = positions.slice().sort((a, b) => (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()));
+    systemState.positions = positions;
 
     if (!systemState.departments.some((item) => item.id === systemState.selectedDepartmentId)) {
         systemState.selectedDepartmentId = null;

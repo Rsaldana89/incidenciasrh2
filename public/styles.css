@@ -418,7 +418,9 @@ th:nth-child(1), td:nth-child(1) {
 .attendance-table th:nth-child(8),
 .attendance-table th:nth-child(9),
 .attendance-table th:nth-child(10) {
-    width: 30px; /* Ancho reducido solo para los días */
+    width: 56px; /* Días parejos, con espacio suficiente para el combo */
+    min-width: 56px;
+    max-width: 56px;
     text-align: center;
 }
 
@@ -429,7 +431,9 @@ th:nth-child(1), td:nth-child(1) {
 .attendance-table td:nth-child(8),
 .attendance-table td:nth-child(9),
 .attendance-table td:nth-child(10) {
-    width: 30px; /* Ancho reducido solo para los días */
+    width: 56px; /* Mantener lunes a domingo uniformes */
+    min-width: 56px;
+    max-width: 56px;
     text-align: center;
     padding: 5px;
 }
@@ -470,6 +474,21 @@ th:nth-child(1), td:nth-child(1) {
     box-sizing: border-box; /* Asegura que el padding se cuente dentro del ancho/alto */
 }
 
+/* Mantener lunes a domingo parejos, con combos del mismo ancho. */
+.attendance-table td:nth-child(4) select,
+.attendance-table td:nth-child(5) select,
+.attendance-table td:nth-child(6) select,
+.attendance-table td:nth-child(7) select,
+.attendance-table td:nth-child(8) select,
+.attendance-table td:nth-child(9) select,
+.attendance-table td:nth-child(10) select {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding: 0 2px;
+    font-size: 14px;
+}
+
 
 
 /* Ajustar el ancho del campo de "Notas" */
@@ -495,6 +514,53 @@ th:nth-child(1), td:nth-child(1) {
     right: 0;
     background-color: rgb(252, 245, 164); /* Fondo amarillo para el encabezado */
     z-index: 3; /* Asegura que el encabezado esté visible sobre las demás celdas */
+}
+
+
+
+/* ======== Resalte visual elegante de fila en edición (asistencias) ======== */
+#attendance-table tbody tr.row-editing td {
+    background: #f4faf5 !important;
+    box-shadow: inset 0 1px 0 #e3efe5, inset 0 -1px 0 #e3efe5;
+    transition: background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+#attendance-table tbody tr.row-editing td:nth-child(1),
+#attendance-table tbody tr.row-editing td:last-child {
+    background: #f8f1bf !important;
+}
+
+#attendance-table tbody tr.row-editing {
+    outline: 1px solid #84b69a;
+    outline-offset: -1px;
+}
+
+#attendance-table tbody tr.row-editing td:first-child {
+    box-shadow: inset 4px 0 0 #6da887, inset 0 1px 0 #e3efe5, inset 0 -1px 0 #e3efe5;
+}
+
+#attendance-table tbody tr.row-editing select,
+#attendance-table tbody tr.row-editing input[type="text"],
+#attendance-table tbody tr.row-editing input[type="number"] {
+    background: #ffffff;
+    border: 1px solid #7fad90;
+    box-shadow: 0 0 0 2px rgba(109, 168, 135, 0.08);
+    font-weight: 500;
+}
+
+#attendance-table tbody tr.row-editing td input:disabled,
+#attendance-table tbody tr.row-editing td select:disabled {
+    background: #edf4ee;
+    border-color: #bfd4c4;
+    box-shadow: none;
+    font-weight: 500;
+}
+
+#attendance-table tbody tr.row-editing button {
+    background: linear-gradient(180deg, #4ea46f 0%, #3e8f60 100%);
+    color: #fff;
+    border-color: #377c53;
+    box-shadow: 0 3px 8px rgba(62, 143, 96, 0.18);
 }
 
 /* Asegurarse de que la tabla y su contenedor permitan scroll horizontal */
@@ -597,6 +663,53 @@ th:nth-child(1), td:nth-child(1) {
 }
 
 
+
+
+
+/* ======== Resalte visual elegante de fila en edición (asistencias) ======== */
+#attendance-table tbody tr.row-editing td {
+    background: #f4faf5 !important;
+    box-shadow: inset 0 1px 0 #e3efe5, inset 0 -1px 0 #e3efe5;
+    transition: background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+#attendance-table tbody tr.row-editing td:nth-child(1),
+#attendance-table tbody tr.row-editing td:last-child {
+    background: #f8f1bf !important;
+}
+
+#attendance-table tbody tr.row-editing {
+    outline: 1px solid #84b69a;
+    outline-offset: -1px;
+}
+
+#attendance-table tbody tr.row-editing td:first-child {
+    box-shadow: inset 4px 0 0 #6da887, inset 0 1px 0 #e3efe5, inset 0 -1px 0 #e3efe5;
+}
+
+#attendance-table tbody tr.row-editing select,
+#attendance-table tbody tr.row-editing input[type="text"],
+#attendance-table tbody tr.row-editing input[type="number"] {
+    background: #ffffff;
+    border: 1px solid #7fad90;
+    box-shadow: 0 0 0 2px rgba(109, 168, 135, 0.08);
+    font-weight: 500;
+}
+
+#attendance-table tbody tr.row-editing td input:disabled,
+#attendance-table tbody tr.row-editing td select:disabled {
+    background: #edf4ee;
+    border-color: #bfd4c4;
+    box-shadow: none;
+    font-weight: 500;
+}
+
+#attendance-table tbody tr.row-editing button {
+    background: linear-gradient(180deg, #4ea46f 0%, #3e8f60 100%);
+    color: #fff;
+    border-color: #377c53;
+    box-shadow: 0 3px 8px rgba(62, 143, 96, 0.18);
+}
 
 /* Asegurarse de que la tabla y su contenedor permitan scroll horizontal */
 .table-container {
@@ -1558,6 +1671,30 @@ footer {
     color: #64748b;
 }
 
+
+.vac18-field-checkbox {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    align-self: end;
+    justify-self: end;
+    margin-left: 28px;
+    padding-left: 8px;
+}
+
+.vac18-field-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    flex: 0 0 auto;
+}
+
+.vac18-field-checkbox label {
+    margin: 0;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
 .vac18-actions {
     display: flex;
     flex-wrap: wrap;
@@ -1684,13 +1821,21 @@ footer {
     padding: 18px;
     border-radius: 12px;
     background: #f8fafc;
-    color: #475569;
+    /* Mostrar la leyenda en rojo cuando no se encuentran empleados para los filtros */
+    color: #b91c1c;
     margin-bottom: 14px;
 }
 
 @media (max-width: 900px) {
     .vac18-grid-admin {
         grid-template-columns: 1fr;
+    }
+
+    .vac18-field-checkbox {
+        justify-self: start;
+        margin-left: 0;
+        padding-left: 0;
+        margin-top: 4px;
     }
 }
 
@@ -1725,15 +1870,15 @@ footer {
 .vacation-card-header .employee-id {
     font-weight: 700;
     color: #1e3a8a;
-    font-size: 0.9rem;
+    font-size: 1.05rem;
 }
 .vacation-card-header .employee-name {
-    font-size: 1rem;
+    font-size: 1.18rem;
     font-weight: 700;
     color: #0f172a;
 }
 .vacation-card-header .employee-department {
-    font-size: 0.85rem;
+    font-size: 1rem;
     color: #64748b;
     font-weight: 600;
 }
@@ -1741,22 +1886,23 @@ footer {
 /* Cuerpo de la tarjeta: muestra diferentes datos distribuidos en columnas flexibles. */
 .vacation-card-body {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
 }
 .vacation-card-field {
     display: flex;
     flex-direction: column;
 }
 .vacation-card-field .label {
-    font-size: 0.75rem;
+    font-size: 0.95rem;
     color: #64748b;
-    font-weight: 600;
+    font-weight: 700;
 }
 .vacation-card-field .value {
-    font-size: 0.9rem;
+    font-size: 1.12rem;
     color: #334155;
-    font-weight: 500;
+    font-weight: 600;
+    line-height: 1.25;
 }
 
 /* Acciones dentro de la tarjeta: reutiliza el estilo de vac18-row-actions para coherencia. */

@@ -80,6 +80,13 @@ select.catalog-warning {
     border: 2px solid #d9534f;
     background-color: #fff5f5;
 }
+#personal-table tbody tr.row-focus td {
+    background-color: #eef7df !important;
+    box-shadow: inset 0 1px 0 #d6e7bf, inset 0 -1px 0 #d6e7bf;
+}
+#personal-table tbody tr.row-focus td:first-child {
+    border-left: 3px solid #7aa35a;
+}
 </style>
                     
                     <thead>
@@ -134,7 +141,7 @@ select.catalog-warning {
 <div id="bulk-add-container">
     <h3>Agregar Empleados Masivo</h3>
     <textarea id="bulk-add-textarea" rows="10" placeholder="Pega los datos de Excel aquí, incluyendo la fila de títulos. Puedes agregar una columna extra de correo electrónico al final."></textarea>
-    <div style="display: flex; gap: 10px; align-items: center;">
+    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
         <button id="bulk-preview-btn" onclick="previewBulkData()">Vista Previa</button>
         <button id="bulk-send-btn" onclick="sendBulkData()" style="display: none;">Enviar Datos</button>
     </div>
@@ -143,6 +150,23 @@ select.catalog-warning {
         <pre id="preview-content"></pre>
     </div>
     <div id="bulk-add-notification" style="margin-top: 20px; display: none;"></div>
+</div>
+
+<div id="bulk-email-update-container" style="margin-top: 34px; padding-top: 24px; border-top: 1px solid #d9e3d2;">
+    <h3>Actualización Masiva de Correos</h3>
+    <p style="margin: 8px 0 14px; color: #4d5c4f; font-size: 15px;">
+        Sube un archivo <strong>.xlsx</strong> o <strong>.xls</strong> con columnas tipo <strong>Código</strong> y <strong>Correo electrónico</strong>. El sistema comparará el ID con o sin ceros a la izquierda y actualizará el correo si el empleado existe.
+    </p>
+    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+        <input type="file" id="bulk-email-file" accept=".xlsx,.xls" />
+        <button id="bulk-email-preview-btn" type="button" onclick="previewBulkEmailUpdate()">Vista Previa</button>
+        <button id="bulk-email-send-btn" type="button" onclick="sendBulkEmailUpdate()" style="display: none;">Actualizar Correos</button>
+    </div>
+    <div id="bulk-email-preview" style="margin-top: 20px; display: none; border: 1px solid #ccc; padding: 12px; border-radius: 6px; background: #f8fbf7;">
+        <h4 style="margin-top: 0;">Vista Previa de actualización</h4>
+        <pre id="bulk-email-preview-content" style="white-space: pre-wrap;"></pre>
+    </div>
+    <div id="bulk-email-notification" style="margin-top: 20px; display: none;"></div>
 </div>
 
 
@@ -315,7 +339,10 @@ document.addEventListener('DOMContentLoaded', function () {
             return response.json();
         })
         .then(data => {
-            ALL_POSITIONS = uniqueCatalogValues(data.positions || []);
+            let positions = uniqueCatalogValues(data.positions || []);
+            // Ordenar alfabéticamente (no hay "Baja" especial para puestos)
+            positions = positions.sort((a, b) => (a || '').toLowerCase().localeCompare((b || '').toLowerCase()));
+            ALL_POSITIONS = positions;
             populatePositionFilter();
             populatePositionModalSelect();
         })
@@ -334,10 +361,12 @@ function populatePositionFilter() {
     allOption.textContent = 'Todos los puestos';
     selectElement.appendChild(allOption);
 
-    const positions = uniqueCatalogValues([
+    let positions = uniqueCatalogValues([
         ...ALL_POSITIONS,
         ...personalData.map(emp => emp.puesto).filter(Boolean)
     ]);
+    // Ordenar alfabéticamente
+    positions = positions.sort((a, b) => (a || '').toLowerCase().localeCompare((b || '').toLowerCase()));
 
     positions.forEach(pos => {
         const option = document.createElement('option');
@@ -402,7 +431,16 @@ function loadDepartments() {
             return response.json();
         })
         .then(data => {
-            ALL_DEPARTMENTS = uniqueCatalogValues(data.departments || []);
+            let depts = uniqueCatalogValues(data.departments || []);
+            // Ordenar alfabéticamente ignorando mayúsculas/minúsculas y dejar "Baja" al final
+            depts = depts.sort((a, b) => {
+                const aLower = (a || '').toLowerCase();
+                const bLower = (b || '').toLowerCase();
+                if (aLower === 'baja' && bLower !== 'baja') return 1;
+                if (bLower === 'baja' && aLower !== 'baja') return -1;
+                return aLower.localeCompare(bLower);
+            });
+            ALL_DEPARTMENTS = depts;
             populateDepartmentFilter();
             populateDepartmentModalSelect();
         })
@@ -421,10 +459,18 @@ function populateDepartmentFilter() {
     allOption.textContent = 'Todos los departamentos';
     selectElement.appendChild(allOption);
 
-    const departments = uniqueCatalogValues([
+    let departments = uniqueCatalogValues([
         ...ALL_DEPARTMENTS,
         ...personalData.map(emp => emp.department_name).filter(Boolean)
     ]);
+    // Ordenar alfabéticamente y dejar "Baja" al final
+    departments = departments.sort((a, b) => {
+        const aLower = (a || '').toLowerCase();
+        const bLower = (b || '').toLowerCase();
+        if (aLower === 'baja' && bLower !== 'baja') return 1;
+        if (bLower === 'baja' && aLower !== 'baja') return -1;
+        return aLower.localeCompare(bLower);
+    });
 
     departments.forEach(dept => {
         const option = document.createElement('option');
@@ -439,10 +485,13 @@ function populateDepartmentFilter() {
 }
 
 function getAllowedDepartmentsForModal() {
-    if (CURRENT_ALLOWED_DEPARTMENTS.includes('Todos')) {
-        return [...ALL_DEPARTMENTS];
-    }
-    return CURRENT_ALLOWED_DEPARTMENTS.filter(dept => ALL_DEPARTMENTS.includes(dept));
+    const allowedDepartments = CURRENT_ALLOWED_DEPARTMENTS.includes('Todos')
+        ? [...ALL_DEPARTMENTS]
+        : CURRENT_ALLOWED_DEPARTMENTS.filter(dept => ALL_DEPARTMENTS.includes(dept));
+
+    // El departamento Baja solo debe asignarse desde el botón dedicado de baja,
+    // no desde el modal de edición/agregado de empleados.
+    return allowedDepartments.filter(dept => (dept || '').trim().toLowerCase() !== 'baja');
 }
 
 function populateDepartmentModalSelect(selectedValue = '', forceInvalid = false) {
@@ -450,7 +499,15 @@ function populateDepartmentModalSelect(selectedValue = '', forceInvalid = false)
     const help = document.getElementById('department-help');
     if (!select) return;
 
-    const modalDepartments = uniqueCatalogValues(getAllowedDepartmentsForModal());
+    let modalDepartments = uniqueCatalogValues(getAllowedDepartmentsForModal());
+    // Ordenar alfabéticamente y dejar "Baja" al final
+    modalDepartments = modalDepartments.sort((a, b) => {
+        const aLower = (a || '').toLowerCase();
+        const bLower = (b || '').toLowerCase();
+        if (aLower === 'baja' && bLower !== 'baja') return 1;
+        if (bLower === 'baja' && aLower !== 'baja') return -1;
+        return aLower.localeCompare(bLower);
+    });
     select.innerHTML = '<option value="">Selecciona un departamento</option>';
 
     modalDepartments.forEach(dept => {
@@ -475,14 +532,19 @@ function populateDepartmentModalSelect(selectedValue = '', forceInvalid = false)
     }
 
     if (selected && forceInvalid) {
+        const isBajaSelected = selected.toLowerCase() === 'baja';
         const invalidOption = document.createElement('option');
         invalidOption.value = '';
-        invalidOption.textContent = `${selected} (ya no existe en catálogo o no tienes acceso)`;
+        invalidOption.textContent = isBajaSelected
+            ? 'Selecciona un departamento para reingresar al empleado'
+            : `${selected} (ya no existe en catálogo o no tienes acceso)`;
         invalidOption.selected = true;
         select.insertBefore(invalidOption, select.firstChild.nextSibling);
         select.classList.add('catalog-warning');
         if (help) {
-            help.textContent = `El departamento actual "${selected}" no existe en catálogo o no está dentro de tus permisos. Selecciona uno válido para guardar.`;
+            help.textContent = isBajaSelected
+                ? 'El departamento Baja ya no se puede elegir desde este modal. Usa el botón Baja para dar de baja y selecciona aquí un departamento válido si el empleado va a reingresar.'
+                : `El departamento actual "${selected}" no existe en catálogo o no está dentro de tus permisos. Selecciona uno válido para guardar.`;
             help.classList.add('catalog-warning');
         }
     }
@@ -676,21 +738,16 @@ function showPersonalManagement(allowedDepartments = CURRENT_ALLOWED_DEPARTMENTS
 
 
 
-function searchEmployee() {
+function applyCurrentPersonalFilters(dataSet = personalData) {
     const searchQuery = document.getElementById('search-input').value.trim().toLowerCase();
     const selectedDepartment = document.getElementById('department-filter').value;
-    const selectedPosition = document.getElementById('position-filter').value; // Nuevo filtro de puesto
+    const selectedPosition = document.getElementById('position-filter').value;
+    const normalizeEmployeeNumber = (number) => String(number).padStart(5, '0');
 
-    // Función para normalizar el número de empleado (5 dígitos con ceros al inicio)
-    const normalizeEmployeeNumber = (number) => number.toString().padStart(5, '0');
-
-    const filteredData = personalData.filter(emp => {
-        // Normalizar el número de empleado del registro
+    const filteredData = dataSet.filter(emp => {
         const employeeNumberNormalized = normalizeEmployeeNumber(emp.employee_number);
-
-        // Comparar nombre o números normalizados
         const matchesSearchQuery = emp.full_name.toLowerCase().includes(searchQuery) || 
-                                   employeeNumberNormalized.includes(normalizeEmployeeNumber(searchQuery)) ||
+                                   employeeNumberNormalized.includes(normalizeEmployeeNumber(searchQuery || '')) ||
                                    emp.employee_number.toString().includes(searchQuery);
 
         const matchesDepartment = selectedDepartment === '' || emp.department_name === selectedDepartment;
@@ -699,9 +756,27 @@ function searchEmployee() {
         return matchesSearchQuery && matchesDepartment && matchesPosition;
     });
 
-    renderPersonalTable(filteredData);
+    const currentSortCriteria = localStorage.getItem('currentSortCriteria') || 'employee_number';
+    const currentSortOrder = localStorage.getItem('currentSortOrder') || 'asc';
+
+    filteredData.sort((a, b) => {
+        if (a.department_name === 'Baja' && b.department_name !== 'Baja') return 1;
+        if (a.department_name !== 'Baja' && b.department_name === 'Baja') return -1;
+
+        const valueA = a[currentSortCriteria] || '';
+        const valueB = b[currentSortCriteria] || '';
+
+        if (valueA < valueB) return currentSortOrder === 'asc' ? -1 : 1;
+        if (valueA > valueB) return currentSortOrder === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    return filteredData;
 }
 
+function searchEmployee() {
+    renderPersonalTable(applyCurrentPersonalFilters(personalData));
+}
 
 
 function extractBirthDateFromRFC(rfc) {
@@ -754,25 +829,18 @@ function calcularEdadDesdeFechaNacimiento(birthDate) {
     return `${age} años`;
 }
 
-function renderPersonalTable(data = personalData) {
-    const tbody = document.querySelector('#personal-table tbody');
-    tbody.innerHTML = '';
-
+function buildPersonalRowHtml(emp) {
     const role = localStorage.getItem('role');
+    const birthDateFromRFC = extractBirthDateFromRFC(emp.rfc);
+    const fechaNacimiento = birthDateFromRFC ? formatDate(birthDateFromRFC) : 'N/D';
+    const edad = birthDateFromRFC ? calcularEdadDesdeFechaNacimiento(birthDateFromRFC) : 'N/D';
+    const antiguedad = calcularAntiguedad(emp.start_date, emp.fecha_reingreso);
+    const isValidDepartment = ALL_DEPARTMENTS.includes(emp.department_name);
+    const isValidPosition = !emp.puesto || ALL_POSITIONS.includes(emp.puesto);
+    const isBaja = emp.department_name.toLowerCase() === 'baja';
 
-    data.forEach(emp => {
-        // Extraer fecha de nacimiento del RFC
-        const birthDateFromRFC = extractBirthDateFromRFC(emp.rfc);
-        const fechaNacimiento = birthDateFromRFC ? formatDate(birthDateFromRFC) : 'N/D';
-        const edad = birthDateFromRFC ? calcularEdadDesdeFechaNacimiento(birthDateFromRFC) : 'N/D';
-
-        const antiguedad = calcularAntiguedad(emp.start_date, emp.fecha_reingreso); 
-        const isValidDepartment = ALL_DEPARTMENTS.includes(emp.department_name);
-        const isValidPosition = !emp.puesto || ALL_POSITIONS.includes(emp.puesto);
-        const isBaja = emp.department_name.toLowerCase() === 'baja'; // Verificar si es "baja"
-
-        let row = `
-            <tr>
+    let row = `
+            <tr data-employee-number="${emp.employee_number}">
                 <td>${emp.employee_number.toString().padStart(5, '0')}</td>
                 <td>${emp.full_name}</td>
                 <td>${emp.rfc || ''}</td>
@@ -785,21 +853,28 @@ function renderPersonalTable(data = personalData) {
                 <td>${emp.fecha_baja ? formatDate(emp.fecha_baja) : ''}</td>
                 <td>${emp.fecha_reingreso ? formatDate(emp.fecha_reingreso) : ''}</td>
                 <td>${antiguedad}</td>
-                <td>${fechaNacimiento}</td> <!-- Fecha de nacimiento desde RFC o N/D -->
-                <td>${edad}</td> <!-- Edad calculada desde RFC o N/D -->
+                <td>${fechaNacimiento}</td>
+                <td>${edad}</td>
                 <td>`;
 
-        if (role === 'admin') {
-            row += `
+    if (role === 'admin') {
+        row += `
                 <button class="edit-btn" onclick="editEmployee(${emp.employee_number})">Editar</button>
                 <button class="baja-btn" onclick="confirmBaja(${emp.employee_number})">Baja</button>`;
-        }
+    }
 
-        row += `</td></tr>`;
-        tbody.insertAdjacentHTML('beforeend', row);
-    });
+    row += `</td></tr>`;
+    return row;
 }
 
+function renderPersonalTable(data = personalData) {
+    const tbody = document.querySelector('#personal-table tbody');
+    tbody.innerHTML = '';
+
+    data.forEach(emp => {
+        tbody.insertAdjacentHTML('beforeend', buildPersonalRowHtml(emp));
+    });
+}
 
 
 function sortPersonal(criteria) {
@@ -894,22 +969,8 @@ function sortPersonal(criteria) {
             console.log(isAdding ? 'Empleado agregado correctamente' : 'Empleado actualizado correctamente');
             alert(isAdding ? 'Empleado agregado correctamente' : 'Empleado actualizado correctamente');
 
-            // 1. Guardar la búsqueda actual:
-            const currentSearch = document.getElementById('search-input').value;
-
-            // 2. Actualizar la tabla
-            fetchUpdatedPersonalData();
-
-            // 3. Con un ligero retardo, restaurar la búsqueda y llamar a searchEmployee().
-            //    (Sólo si había algo escrito en el cuadro)
-            setTimeout(() => {
-                document.getElementById('search-input').value = currentSearch;
-                if (currentSearch.trim() !== "") {
-                    searchEmployee();
-                }
-            }, 300);
-
-            // 4. Cerrar el modal al final
+            const editedEmployeeNumber = employeeData.employee_number;
+            refreshEditedEmployeeRow(editedEmployeeNumber);
             closeEmployeeModal();
         }
     })
@@ -1507,16 +1568,73 @@ function backupDatabase() {
     });
 }
 
-function fetchUpdatedPersonalData() {
-    // Guardar el estado actual
-    const currentSearchQuery = document.getElementById('search-input').value.toLowerCase().trim();
-    const currentDepartmentFilter = document.getElementById('department-filter').value;
-    const currentPositionFilter = document.getElementById('position-filter').value;
-    const currentSortCriteria = localStorage.getItem('currentSortCriteria') || 'employee_number';
-    const currentSortOrder = localStorage.getItem('currentSortOrder') || 'asc';
-    const scrollPosition = document.querySelector('.table-container').scrollLeft;
+function focusPersonalRow(employeeNumber, options = {}) {
+    if (!employeeNumber) return;
 
-    // Obtener datos actualizados
+    const row = document.querySelector(`#personal-table tbody tr[data-employee-number="${employeeNumber}"]`);
+    if (!row) return;
+
+    row.classList.add('row-focus');
+
+    if (options.scrollIntoView) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    }
+
+    setTimeout(() => {
+        row.classList.remove('row-focus');
+    }, 2200);
+}
+
+function refreshEditedEmployeeRow(employeeNumber) {
+    const tableContainer = document.querySelector('.table-container');
+    const scrollLeft = tableContainer ? tableContainer.scrollLeft : 0;
+    const scrollTop = tableContainer ? tableContainer.scrollTop : 0;
+
+    fetch(`/admin/personal/${employeeNumber}`, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('No se pudo obtener el empleado actualizado');
+        }
+        return response.json();
+    })
+    .then(employee => {
+        const currentIndex = personalData.findIndex(emp => String(emp.employee_number) === String(employee.employee_number));
+        if (currentIndex >= 0) {
+            personalData[currentIndex] = employee;
+        }
+
+        const filteredData = applyCurrentPersonalFilters(personalData);
+        const updatedEmployeeVisible = filteredData.some(emp => String(emp.employee_number) === String(employee.employee_number));
+        const existingRow = document.querySelector(`#personal-table tbody tr[data-employee-number="${employee.employee_number}"]`);
+
+        if (existingRow && updatedEmployeeVisible) {
+            existingRow.outerHTML = buildPersonalRowHtml(employee);
+            if (tableContainer) {
+                tableContainer.scrollLeft = scrollLeft;
+                tableContainer.scrollTop = scrollTop;
+            }
+            focusPersonalRow(employee.employee_number, { scrollIntoView: false });
+            return;
+        }
+
+        fetchUpdatedPersonalData(employee.employee_number, { preserveViewport: true, scrollIntoView: false });
+    })
+    .catch(error => {
+        console.error('Error al refrescar el empleado editado:', error);
+        fetchUpdatedPersonalData(employeeNumber, { preserveViewport: true, scrollIntoView: false });
+    });
+}
+
+function fetchUpdatedPersonalData(focusEmployeeNumber = null, options = {}) {
+    const tableContainer = document.querySelector('.table-container');
+    const scrollLeft = tableContainer ? tableContainer.scrollLeft : 0;
+    const scrollTop = tableContainer ? tableContainer.scrollTop : 0;
+
     fetch('/admin/personal', {
         method: 'GET',
         headers: {
@@ -1537,41 +1655,16 @@ function fetchUpdatedPersonalData() {
         }
 
         refreshCatalogFilters();
+        renderPersonalTable(applyCurrentPersonalFilters(personalData));
 
-        let filteredData = personalData;
-
-        if (currentSearchQuery || currentDepartmentFilter || currentPositionFilter) {
-            filteredData = personalData.filter(emp => {
-                const matchesSearchQuery =
-                    emp.full_name.toLowerCase().includes(currentSearchQuery) ||
-                    emp.employee_number.toString().includes(currentSearchQuery);
-                const matchesDepartment =
-                    currentDepartmentFilter === '' || emp.department_name === currentDepartmentFilter;
-                const matchesPosition =
-                    currentPositionFilter === '' || emp.puesto === currentPositionFilter;
-
-                return matchesSearchQuery && matchesDepartment && matchesPosition;
-            });
+        if (tableContainer && options.preserveViewport !== false) {
+            tableContainer.scrollLeft = scrollLeft;
+            tableContainer.scrollTop = scrollTop;
         }
 
-        // Aplicar ordenamiento **siempre** (para mantener consistencia)
-        filteredData.sort((a, b) => {
-            if (a.department_name === 'Baja' && b.department_name !== 'Baja') return 1;
-            if (a.department_name !== 'Baja' && b.department_name === 'Baja') return -1;
-
-            const valueA = a[currentSortCriteria] || ''; // Tratar valores nulos como cadenas vacías
-            const valueB = b[currentSortCriteria] || '';
-
-            if (valueA < valueB) return currentSortOrder === 'asc' ? -1 : 1;
-            if (valueA > valueB) return currentSortOrder === 'asc' ? 1 : -1;
-            return 0;
-        });
-
-        // Renderizar la tabla con los datos filtrados y ordenados
-        renderPersonalTable(filteredData);
-
-        // Restaurar la posición del scroll
-        document.querySelector('.table-container').scrollLeft = scrollPosition;
+        if (focusEmployeeNumber) {
+            setTimeout(() => focusPersonalRow(focusEmployeeNumber, { scrollIntoView: options.scrollIntoView === true }), 60);
+        }
     })
     .catch(error => {
         console.error('Error al actualizar la tabla:', error);
@@ -1766,6 +1859,121 @@ function showNotification(message, type) {
     setTimeout(() => {
         notification.style.display = 'none';
     }, 5000);
+}
+
+
+let bulkEmailPreviewRows = [];
+
+function normalizeEmployeeNumberKey(value) {
+    if (value === null || value === undefined) return '';
+    const cleaned = String(value).trim();
+    if (!cleaned) return '';
+    const digits = cleaned.replace(/\D/g, '');
+    if (!digits) return '';
+    return String(parseInt(digits, 10));
+}
+
+function normalizeBulkEmailValue(value) {
+    if (value === null || value === undefined) return '';
+    return String(value).trim().toLowerCase();
+}
+
+function showBulkEmailNotification(message, type) {
+    const notification = document.getElementById('bulk-email-notification');
+    notification.textContent = message;
+    notification.style.display = 'block';
+    notification.style.padding = '10px';
+    notification.style.borderRadius = '4px';
+    notification.style.color = type === 'success' ? '#3c763d' : '#a94442';
+    notification.style.backgroundColor = type === 'success' ? '#dff0d8' : '#f2dede';
+    notification.style.border = type === 'success' ? '1px solid #d6e9c6' : '1px solid #ebccd1';
+}
+
+function getBulkEmailRowsFromWorkbook(workbook) {
+    const firstSheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[firstSheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+    if (!rows.length) return [];
+
+    const headers = rows[0].map(cell => String(cell || '').trim().toLowerCase());
+    let idIndex = headers.findIndex(h => ['código', 'codigo', 'id', 'empleado', 'employee_number', 'numero', 'número'].includes(h));
+    let emailIndex = headers.findIndex(h => ['correo electrónico', 'correo electronico', 'correo', 'email', 'e-mail'].includes(h));
+    if (idIndex === -1) idIndex = 0;
+    if (emailIndex === -1) emailIndex = 1;
+
+    return rows.slice(1)
+        .map((row, index) => ({
+            rawEmployeeNumber: row[idIndex],
+            employee_number: normalizeEmployeeNumberKey(row[idIndex]),
+            email: normalizeBulkEmailValue(row[emailIndex]),
+            lineNumber: index + 2
+        }))
+        .filter(item => item.employee_number && item.email);
+}
+
+function previewBulkEmailUpdate() {
+    const fileInput = document.getElementById('bulk-email-file');
+    const file = fileInput.files[0];
+    if (!file) {
+        alert('Selecciona un archivo XLSX o XLS primero.');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        try {
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const rows = getBulkEmailRowsFromWorkbook(workbook);
+            if (!rows.length) {
+                alert('No se encontraron filas válidas con ID y correo en el archivo.');
+                return;
+            }
+
+            bulkEmailPreviewRows = rows;
+            const preview = rows.slice(0, 12).map(item => `${item.employee_number} -> ${item.email}`).join('\n');
+            const extra = rows.length > 12 ? `\n... y ${rows.length - 12} registro(s) más.` : '';
+            document.getElementById('bulk-email-preview-content').textContent = `Registros válidos detectados: ${rows.length}\n\n${preview}${extra}`;
+            document.getElementById('bulk-email-preview').style.display = 'block';
+            document.getElementById('bulk-email-send-btn').style.display = 'inline-block';
+            showBulkEmailNotification('Archivo leído correctamente. Revisa la vista previa antes de actualizar.', 'success');
+        } catch (error) {
+            console.error('Error al leer el archivo de actualización de correos:', error);
+            alert('No se pudo leer el archivo. Verifica que sea un Excel válido.');
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function sendBulkEmailUpdate() {
+    if (!bulkEmailPreviewRows.length) {
+        alert('Primero genera la vista previa del archivo.');
+        return;
+    }
+
+    fetch('/admin/personal/bulk-email-update', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ updates: bulkEmailPreviewRows })
+    })
+    .then(async response => {
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'Error al actualizar correos');
+        }
+        return data;
+    })
+    .then(data => {
+        showBulkEmailNotification(`Correos actualizados: ${data.updated}. No encontrados: ${data.not_found}. Filas ignoradas: ${data.skipped}.`, 'success');
+        fetchUpdatedPersonalData(null, { preserveViewport: true, scrollIntoView: false });
+    })
+    .catch(error => {
+        console.error('Error al actualizar correos:', error);
+        showBulkEmailNotification(error.message || 'No se pudieron actualizar los correos.', 'error');
+    });
 }
 
 
