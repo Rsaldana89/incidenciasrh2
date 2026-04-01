@@ -41,6 +41,46 @@ h1 {
 }
 
 
+.toolbar a.nav-badge-link {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding-right: 18px;
+}
+
+.toolbar a.nav-badge-link::after {
+    content: "NUEVO";
+    position: absolute;
+    top: -10px;
+    right: -14px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    line-height: 1;
+    color: #fff9ef;
+    background: linear-gradient(135deg, #f3b248 0%, #d5841f 100%);
+    border: 1px solid rgba(255,255,255,0.5);
+    border-radius: 999px;
+    padding: 4px 7px;
+    box-shadow: 0 4px 10px rgba(118, 72, 10, 0.22);
+    text-shadow: none;
+}
+
+.toolbar a.nav-badge-link:hover::after {
+    transform: translateY(-1px);
+}
+
+@media (max-width: 900px) {
+    .toolbar a.nav-badge-link::after {
+        top: -8px;
+        right: -10px;
+        font-size: 9px;
+        padding: 3px 6px;
+    }
+}
+
+
 
 .user-info {
     text-align: center;
