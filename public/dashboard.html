@@ -54,6 +54,28 @@
                 </div>
             </div>
 
+            <!--
+              Tarjeta para ofrecer el formato de vacaciones.
+              Esta tarjeta se sitúa al principio del módulo para que todos los usuarios tengan a mano las opciones
+              de descargar o imprimir el formato de vacaciones proporcionado. Incluye tres botones con íconos
+              representativos para descargar el archivo en Excel, descargar el PDF y abrir el PDF en una
+              nueva pestaña para imprimirlo. Los íconos se copian de Font Awesome a la carpeta public.
+            -->
+            <div class="vac18-card" id="vac-format-card">
+                <div class="vac18-card-title">Formato de vacaciones</div>
+                <div class="vac18-actions">
+                    <button type="button" id="btn-download-excel" class="secondary">
+                        <img src="file-excel.svg" alt="Excel" class="vac18-btn-icon"> Descargar Excel
+                    </button>
+                    <button type="button" id="btn-download-pdf" class="secondary">
+                        <img src="file-pdf.svg" alt="PDF" class="vac18-btn-icon"> Descargar PDF
+                    </button>
+                    <button type="button" id="btn-print-format" class="secondary">
+                        <img src="print.svg" alt="Imprimir" class="vac18-btn-icon"> Imprimir formato
+                    </button>
+                </div>
+            </div>
+
             <div class="vac18-card">
                 <div class="vac18-card-title">Filtros de consulta</div>
                 <div class="vac18-grid vac18-grid-filters">

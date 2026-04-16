@@ -46,6 +46,21 @@ async function apiRequest(url, options = {}) {
     return payload;
 }
 
+
+function triggerBrowserDownload(url) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = '';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+}
+
+function openPdfPrintPreview(pdfUrl, title = 'Formato de vacaciones') {
+    const previewUrl = `print-preview.html?file=${encodeURIComponent(pdfUrl)}&title=${encodeURIComponent(title)}`;
+    window.open(previewUrl, '_blank', 'noopener');
+}
+
 function escapeHtml(value) {
     return String(value == null ? '' : value)
         .replace(/&/g, '&amp;')
@@ -610,6 +625,27 @@ function attachEvents() {
     document.getElementById('btn-print').addEventListener('click', () => {
         printRows(vacationState.rows, 'Reporte de vacaciones');
     });
+
+    // Gestión de descarga e impresión del formato de vacaciones
+    // Este formulario adicional permite descargar el archivo adjunto (Excel o PDF) o abrirlo en una nueva pestaña para impresión.
+    const btnDownloadExcel = document.getElementById('btn-download-excel');
+    if (btnDownloadExcel) {
+        btnDownloadExcel.addEventListener('click', () => {
+            triggerBrowserDownload('FormatoVacaciones.xlsx');
+        });
+    }
+    const btnDownloadPdf = document.getElementById('btn-download-pdf');
+    if (btnDownloadPdf) {
+        btnDownloadPdf.addEventListener('click', () => {
+            triggerBrowserDownload('FormatoVacaciones.pdf');
+        });
+    }
+    const btnPrintFormat = document.getElementById('btn-print-format');
+    if (btnPrintFormat) {
+        btnPrintFormat.addEventListener('click', () => {
+            openPdfPrintPreview('FormatoVacaciones.pdf', 'Formato de vacaciones');
+        });
+    }
 
     document.getElementById('logout-btn').addEventListener('click', () => {
         localStorage.removeItem('token');

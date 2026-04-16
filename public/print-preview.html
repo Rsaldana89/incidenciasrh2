@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vista previa de impresión</title>
+    <style>
+        :root {
+            --brand: #2f855a;
+            --brand-dark: #256b48;
+            --accent: #475569;
+            --paper: #ffffff;
+            --bg: #eef7f0;
+            --text: #1f2937;
+            --muted: #64748b;
+            --border: #dbe5dd;
+            --shadow: 0 14px 40px rgba(15, 23, 42, 0.12);
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(180deg, #edf7ef 0%, #e6f1e9 100%);
+            color: var(--text);
+        }
+        .preview-shell {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            padding: 18px;
+        }
+        .preview-topbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            background: rgba(255,255,255,0.92);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            box-shadow: var(--shadow);
+            padding: 18px 20px;
+            backdrop-filter: blur(6px);
+        }
+        .preview-heading h1 {
+            margin: 0;
+            font-size: 24px;
+            color: var(--brand-dark);
+        }
+        .preview-heading p {
+            margin: 6px 0 0;
+            color: var(--muted);
+            font-size: 14px;
+        }
+        .preview-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .preview-btn {
+            appearance: none;
+            border: none;
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+        }
+        .preview-btn:hover { transform: translateY(-1px); }
+        .preview-btn.primary { background: linear-gradient(135deg, #38a169, #2f855a); color: #fff; }
+        .preview-btn.secondary { background: #475569; color: #fff; }
+        .preview-btn.light { background: #fff; color: var(--text); border: 1px solid var(--border); }
+        .preview-frame-wrap {
+            flex: 1;
+            min-height: 70vh;
+            background: rgba(255,255,255,0.76);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            padding: 16px;
+        }
+        .preview-frame {
+            width: 100%;
+            height: calc(100vh - 180px);
+            min-height: 620px;
+            border: none;
+            border-radius: 14px;
+            background: var(--paper);
+        }
+        .preview-note {
+            margin: 0;
+            font-size: 13px;
+            color: var(--muted);
+        }
+        .preview-error {
+            display: none;
+            padding: 14px 16px;
+            border-radius: 12px;
+            background: #fff1f2;
+            color: #be123c;
+            border: 1px solid #fecdd3;
+            font-weight: 600;
+        }
+        @media print {
+            .preview-topbar, .preview-note, .preview-error { display: none !important; }
+            .preview-shell, .preview-frame-wrap { padding: 0; margin: 0; border: none; box-shadow: none; background: #fff; }
+            .preview-frame { height: 100vh; min-height: auto; }
+            body { background: #fff; }
+        }
+    </style>
+</head>
+<body>
+    <div class="preview-shell">
+        <div class="preview-topbar">
+            <div class="preview-heading">
+                <h1 id="preview-title">Vista previa de impresión</h1>
+                <p>Revisa el formato antes de imprimir. También puedes descargarlo o abrirlo directamente en otra pestaña.</p>
+            </div>
+            <div class="preview-actions">
+                <button class="preview-btn primary" id="btn-preview-print" type="button">🖨️ Imprimir ahora</button>
+                <button class="preview-btn secondary" id="btn-preview-download" type="button">⬇️ Descargar PDF</button>
+                <button class="preview-btn light" id="btn-preview-open" type="button">↗️ Abrir PDF</button>
+                <button class="preview-btn light" id="btn-preview-close" type="button">✕ Cerrar</button>
+            </div>
+        </div>
+
+        <div class="preview-error" id="preview-error">No se pudo cargar el documento para la vista previa.</div>
+        <p class="preview-note">Sugerencia: usa “Imprimir ahora” para abrir el diálogo de impresión con una presentación más cómoda para el usuario.</p>
+
+        <div class="preview-frame-wrap">
+            <iframe id="pdf-frame" class="preview-frame" title="Vista previa del PDF"></iframe>
+        </div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const pdfUrl = params.get('file') || 'FormatoVacaciones.pdf';
+        const title = params.get('title') || 'Formato de vacaciones';
+        const frame = document.getElementById('pdf-frame');
+        const errorBox = document.getElementById('preview-error');
+        document.getElementById('preview-title').textContent = `Vista previa: ${title}`;
+
+        function triggerDownload(url) {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = '';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        }
+
+        document.getElementById('btn-preview-print').addEventListener('click', () => {
+            const printWindow = window.open(pdfUrl, '_blank', 'noopener');
+            if (printWindow) {
+                printWindow.addEventListener('load', () => {
+                    setTimeout(() => {
+                        try { printWindow.focus(); printWindow.print(); } catch (e) {}
+                    }, 500);
+                });
+            }
+        });
+
+        document.getElementById('btn-preview-download').addEventListener('click', () => triggerDownload(pdfUrl));
+        document.getElementById('btn-preview-open').addEventListener('click', () => window.open(pdfUrl, '_blank', 'noopener'));
+        document.getElementById('btn-preview-close').addEventListener('click', () => window.close());
+
+        frame.addEventListener('load', () => {
+            errorBox.style.display = 'none';
+        });
+        frame.addEventListener('error', () => {
+            errorBox.style.display = 'block';
+        });
+        frame.src = pdfUrl + '#toolbar=1&navpanes=0&view=FitH';
+    </script>
+</body>
+</html>

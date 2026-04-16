@@ -1952,3 +1952,15 @@ footer {
     gap: 8px;
     margin-top: 8px;
 }
+
+/*
+ * Iconos utilizados en los botones de descarga/imprimir del formato de vacaciones.
+ * Se ajustan a un tamaño pequeño y añaden un espacio a la derecha para separarlos
+ * del texto. La alineación vertical asegura que queden centrados respecto al texto.
+ */
+.vac18-btn-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
