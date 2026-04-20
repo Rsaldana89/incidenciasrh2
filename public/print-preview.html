@@ -140,8 +140,10 @@
 
     <script>
         const params = new URLSearchParams(window.location.search);
+        const mode = params.get('mode') || 'pdf';
         const pdfUrl = params.get('file') || 'FormatoVacaciones.pdf';
         const title = params.get('title') || 'Formato de vacaciones';
+        const storageKey = params.get('storageKey') || '';
         const frame = document.getElementById('pdf-frame');
         const errorBox = document.getElementById('preview-error');
         document.getElementById('preview-title').textContent = `Vista previa: ${title}`;
@@ -155,20 +157,56 @@
             link.remove();
         }
 
-        document.getElementById('btn-preview-print').addEventListener('click', () => {
-            const printWindow = window.open(pdfUrl, '_blank', 'noopener');
-            if (printWindow) {
-                printWindow.addEventListener('load', () => {
-                    setTimeout(() => {
-                        try { printWindow.focus(); printWindow.print(); } catch (e) {}
-                    }, 500);
-                });
+        function printFrame() {
+            try {
+                frame.contentWindow.focus();
+                frame.contentWindow.print();
+            } catch (e) {
+                errorBox.style.display = 'block';
             }
+        }
+
+        document.getElementById('btn-preview-print').addEventListener('click', () => {
+            if (mode === 'html') {
+                printFrame();
+                return;
+            }
+            printFrame();
         });
 
-        document.getElementById('btn-preview-download').addEventListener('click', () => triggerDownload(pdfUrl));
-        document.getElementById('btn-preview-open').addEventListener('click', () => window.open(pdfUrl, '_blank', 'noopener'));
-        document.getElementById('btn-preview-close').addEventListener('click', () => window.close());
+        document.getElementById('btn-preview-download').addEventListener('click', () => {
+            if (mode === 'html') {
+                const htmlContent = sessionStorage.getItem(storageKey) || '';
+                const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+                const objectUrl = URL.createObjectURL(blob);
+                triggerDownload(objectUrl);
+                setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+                return;
+            }
+            triggerDownload(pdfUrl);
+        });
+
+        document.getElementById('btn-preview-open').addEventListener('click', () => {
+            if (mode === 'html') {
+                const htmlContent = sessionStorage.getItem(storageKey) || '';
+                const previewWindow = window.open('', '_blank', 'noopener');
+                if (previewWindow) {
+                    previewWindow.document.open();
+                    previewWindow.document.write(htmlContent);
+                    previewWindow.document.close();
+                }
+                return;
+            }
+            window.open(pdfUrl, '_blank', 'noopener');
+        });
+
+        document.getElementById('btn-preview-close').addEventListener('click', () => {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.close();
+            }
+        });
 
         frame.addEventListener('load', () => {
             errorBox.style.display = 'none';
@@ -176,7 +214,13 @@
         frame.addEventListener('error', () => {
             errorBox.style.display = 'block';
         });
-        frame.src = pdfUrl + '#toolbar=1&navpanes=0&view=FitH';
+
+        if (mode === 'html') {
+            const htmlContent = sessionStorage.getItem(storageKey) || '<p style="font-family:Arial,sans-serif;padding:24px;">No se encontró el contenido de la vista previa.</p>';
+            frame.srcdoc = htmlContent;
+        } else {
+            frame.src = pdfUrl + '#toolbar=1&navpanes=0&view=FitH';
+        }
     </script>
 </body>
 </html>

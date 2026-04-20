@@ -1335,7 +1335,7 @@ function exportarAsistenciasCompaq() {
             headers.push(table.rows[0].cells[j].innerText);
         }
     }
-    data.push(headers);
+    data.push(headers.map((header) => header.trim() === 'DT' ? 'DDL' : header));
 
     // Recorrer las filas de la tabla (exceptuando los encabezados)
     for (let i = 1; i < table.rows.length; i++) {
@@ -1385,30 +1385,41 @@ function exportarAsistenciasCompaq() {
 
 // Función para traducir los valores de "TE" a "HE2" y "F" a "FINJ"
 function translateValue(value) {
-    let result = value;
+    let result = String(value == null ? '' : value).trim();
 
-    // Traducción dinámica de "F" a "FINJ"
-    result = result.replace(/\b(\d*(?:\.\d+)?)F\b/g, function(match, p1) {
-        let number = p1 || '1'; // Si no hay número, asumimos '1'
-        return number + 'FINJ';
-    });
+    if (result === '0.5TE') {
+        result = '.3HE2';
+    } else {
+        result = result.replace(/\b(\d*(?:\.\d+)?)F\b/g, function(match, p1) {
+            const number = p1 || '1';
+            return number + 'FINJ';
+        });
 
-    // Traducción dinámica de "TE" a "HE2"
-    result = result.replace(/\b(\d*(?:\.\d+)?)TE\b/g, function(match, p1) {
-        let number = p1 || '1'; // Si no hay número, asumimos '1'
-        return number + 'HE2';
-    });
+        result = result.replace(/\b(\d*(?:\.\d+)?)TE\b/g, function(match, p1) {
+            const number = p1 || '1';
+            return number + 'HE2';
+        });
 
-    let matchFH = result.match(/^(\d+(?:\.\d+)?)(FINJ|HE2)$/);
-    if (matchFH) {
-        let number = parseFloat(matchFH[1]);
+        result = result.replace(/\b(\d*(?:\.\d+)?)DT\b/g, function(match, p1) {
+            const number = p1 || '';
+            return number + 'DDL';
+        });
+
+        result = result.replace(/\b(\d*(?:\.\d+)?)M\b/g, function(match, p1) {
+            const number = p1 || '1';
+            return number + 'MINJ';
+        });
+    }
+
+    const matchTranslated = result.match(/^(\d+(?:\.\d+)?)(FINJ|HE2|MINJ)$/);
+    if (matchTranslated) {
+        const number = parseFloat(matchTranslated[1]);
         if (number === 0) {
             result = '';
         }
     }
 
-    // Si el resultado es "0DT", "0DFT", "0INC", "0VAC" o simplemente "0", también dejarlo vacío
-    if (/^0(DT|DFT|INC|VAC)$/.test(result) || result === '0') {
+    if (/^0(DDL|DFT|INC|VAC)$/.test(result) || result === '0') {
         result = '';
     }
 
@@ -1437,7 +1448,7 @@ function exportarAsistenciasCompaqEYE() {
             headers.push(table.rows[0].cells[j].innerText);
         }
     }
-    data.push(headers);
+    data.push(headers.map((header) => header.trim() === 'DT' ? 'DDL' : header));
 
     // Filtrar filas por departamentos "EYE"
     for (let i = 1; i < table.rows.length; i++) {
@@ -1511,7 +1522,7 @@ function exportarAsistenciasCompaqCHC() {
             headers.push(table.rows[0].cells[j].innerText);
         }
     }
-    data.push(headers);
+    data.push(headers.map((header) => header.trim() === 'DT' ? 'DDL' : header));
 
     // Filtrar filas por departamentos que NO empiecen con "EYE"
     for (let i = 1; i < table.rows.length; i++) {
@@ -1575,7 +1586,7 @@ function SoloIncidenciasCompaq() {
             headers.push(table.rows[0].cells[j].innerText.trim());
         }
     }
-    data.push(headers);
+    data.push(headers.map((header) => header.trim() === 'DT' ? 'DDL' : header));
 
     // 2. Definir columnas de días y numéricas
     const dayColumns = ["LU", "MA", "MI", "JU", "VI", "SA", "DO"];
@@ -1688,7 +1699,7 @@ function SoloIncidenciasCHC() {
             headers.push(table.rows[0].cells[j].innerText.trim());
         }
     }
-    data.push(headers);
+    data.push(headers.map((header) => header.trim() === 'DT' ? 'DDL' : header));
 
     // 2. Definir columnas de días y columnas numéricas
     const dayColumns = ["LU", "MA", "MI", "JU", "VI", "SA", "DO"];
@@ -1811,7 +1822,7 @@ function SoloIncidenciasEYE() {
             headers.push(table.rows[0].cells[j].innerText.trim());
         }
     }
-    data.push(headers);
+    data.push(headers.map((header) => header.trim() === 'DT' ? 'DDL' : header));
 
     // 3. Listas de columnas de días y columnas numéricas
     const dayColumns = ["LU", "MA", "MI", "JU", "VI", "SA", "DO"];
@@ -1930,41 +1941,41 @@ function SoloIncidenciasEYE() {
 
 // Función para traducir los valores de "TE" a "HE2", "F" a "FINJ" y "M" a "MINJ"
 function translateValue(value) {
-    let result = value;
+    let result = String(value == null ? '' : value).trim();
 
-    // Traducción específica: "0.5TE" -> ".3HE2"
     if (result === '0.5TE') {
         result = '.3HE2';
     } else {
-        // Traducción dinámica de "F" a "FINJ"
         result = result.replace(/\b(\d*(?:\.\d+)?)F\b/g, function(match, p1) {
-            let number = p1 || '1'; // Si no hay número, asumimos '1'
+            const number = p1 || '1';
             return number + 'FINJ';
         });
 
-        // Traducción dinámica de "TE" a "HE2"
         result = result.replace(/\b(\d*(?:\.\d+)?)TE\b/g, function(match, p1) {
-            let number = p1 || '1'; // Si no hay número, asumimos '1'
+            const number = p1 || '1';
             return number + 'HE2';
         });
 
-        // Nueva traducción dinámica de "M" a "MINJ"
+        result = result.replace(/\b(\d*(?:\.\d+)?)DT\b/g, function(match, p1) {
+            const number = p1 || '';
+            return number + 'DDL';
+        });
+
         result = result.replace(/\b(\d*(?:\.\d+)?)M\b/g, function(match, p1) {
-            let number = p1 || '1'; // Si no hay número, asumimos '1'
+            const number = p1 || '1';
             return number + 'MINJ';
         });
     }
 
-    let matchFH = result.match(/^(\d+(?:\.\d+)?)(FINJ|HE2|MINJ)$/);
-    if (matchFH) {
-        let number = parseFloat(matchFH[1]);
+    const matchTranslated = result.match(/^(\d+(?:\.\d+)?)(FINJ|HE2|MINJ)$/);
+    if (matchTranslated) {
+        const number = parseFloat(matchTranslated[1]);
         if (number === 0) {
             result = '';
         }
     }
 
-    // Si el resultado es "0DT", "0DFT", "0INC", "0VAC" o simplemente "0", también dejarlo vacío
-    if (/^0(DT|DFT|INC|VAC)$/.test(result) || result === '0') {
+    if (/^0(DDL|DFT|INC|VAC)$/.test(result) || result === '0') {
         result = '';
     }
 

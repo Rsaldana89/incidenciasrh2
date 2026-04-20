@@ -1773,6 +1773,26 @@ footer {
     font-size: 12px;
 }
 
+
+.vac18-row-action-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
+.vac18-row-action-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.vac18-row-action-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #334155;
+}
+
 .vac18-actions button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
@@ -1951,6 +1971,11 @@ footer {
     flex-wrap: wrap;
     gap: 8px;
     margin-top: 8px;
+}
+
+
+.vacation-card .vac18-row-action-groups {
+    margin-top: 10px;
 }
 
 /*
