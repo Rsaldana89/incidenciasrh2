@@ -1273,7 +1273,26 @@ app.get('/admin/attendances', authenticateToken, (req, res) => {
             COALESCE(a.COMISION, 0) AS 'Comision',
             COALESCE(a.BONO_PRODUCTIVIDAD, 0) AS 'Bono productividad',
             COALESCE(a.APOYO_TRANSPORTE, 0) AS 'Apoyo transporte',
-            COALESCE(a.PRIMA_DOMINICAL, 0) AS 'Prima dominical',
+            /*
+             * Exponer la columna de Prima Dominical con ambos alias de las versiones
+             * anteriores y actuales.  En la versión 1.x el campo se exponía
+             * como "Prima dominical" (d minúscula) mientras que en la 2.x se
+             * migró a "Prima Dominical" (D mayúscula).  Algunos clientes
+             * siguen esperando la variante con d minúscula, por lo que si
+             * sólo se incluye el alias con D mayúscula obtendrán siempre 0.
+             * Para conservar total compatibilidad, se incluyen ambas claves
+             * en el resultado.  Así, el objeto JSON tendrá dos propiedades
+             * que refieren al mismo valor de la base de datos:
+             *   - "Prima Dominical"
+             *   - "Prima dominical"
+             * El front‑end puede tomar cualquiera de las dos y obtendrá el
+             * valor real almacenado.  En el lado del servidor no importa
+             * duplicar la columna porque MySQL permite alias repetidos siempre
+             * que no se utilicen en funciones de agregación y el resultado se
+             * serializa como claves distintas.
+             */
+            CAST(COALESCE(a.PRIMA_DOMINICAL, 0) AS UNSIGNED) AS 'Prima Dominical',
+            CAST(COALESCE(a.PRIMA_DOMINICAL, 0) AS UNSIGNED) AS 'Prima dominical',
             COALESCE(a.DIAS_FESTIVOS, 0) AS 'Dias festivos',
             COALESCE(a.INCAPACIDAD, 0) AS 'Incapacidad',
             COALESCE(a.DESCUENTO_PRESTAMO_INVENTARIO, 0) AS 'Descuento prestamo inventario',

@@ -898,6 +898,34 @@ function renderAttendanceTable(data) {
         const totalINC = calculateTotalINC();
         const totalVAC = calculateTotalVAC();
 
+        // Valor de Prima Dominical.  A partir de la versión 2.1 el servidor
+        // expone la columna con el alias "Prima Dominical" (D mayúscula), pero
+        // versiones anteriores usaban "Prima dominical" (d minúscula).  Para
+        // mantener compatibilidad primero buscamos la clave con D mayúscula y
+        // luego la variante con d minúscula.  Un valor numérico 0 es válido
+        // (representa que no se paga prima dominical) y no debe considerarse
+        // falsy; por ello comparamos contra null/undefined únicamente.
+        // Determinar la clave y el valor de Prima Dominical de forma robusta.
+        // El nombre de la propiedad puede variar en mayúsculas/minúsculas e
+        // incluso contener espacios no rompibles (\u00a0).  Recorremos las
+        // claves del registro para encontrar aquella que, al normalizarla
+        // (reemplazando \u00a0 por espacio normal, trim y toLowerCase),
+        // coincida con "prima dominical".  Si existe y su valor no es
+        // null/undefined, lo usamos; de lo contrario usamos '0' por defecto.
+        let primaDominicalValue = '0';
+        for (const key of Object.keys(attendance)) {
+            if (typeof key === 'string') {
+                const normalized = key.replace(/\u00a0/g, ' ').trim().toLowerCase();
+                if (normalized === 'prima dominical') {
+                    const val = attendance[key];
+                    if (val != null) {
+                        primaDominicalValue = val;
+                    }
+                    break;
+                }
+            }
+        }
+
         let row = `
             <tr>
                 <td>${employeeNumber}</td>
@@ -910,7 +938,7 @@ function renderAttendanceTable(data) {
                 ${renderComboBox('VIERNES', attendance.VIERNES || '1')}
                 ${renderComboBox('SABADO', attendance.SABADO || '1')}
                 ${renderComboBox('DOMINGO', attendance.DOMINGO || '1')}
-                ${renderComboBox('Prima Dominical', attendance['Prima dominical'] || '0', [0, 1])} 
+                ${renderComboBox('Prima Dominical', primaDominicalValue || '0', [0, 1])} 
                 <td>${totalExtra}</td>
                 <td>${totalDT}</td>
                 <td>${totalDFT}</td>
@@ -943,7 +971,17 @@ function renderComboBox(fieldName, value, options = [ "1", "F", "0.5TE", "1TE", 
     // Anteriormente también se restringía "DT" (descanso trabajado), lo cual impedía
     // capturar descansos trabajados en domingo. Ahora permitimos seleccionar DT los domingos.
     const restrictedSundayOptions = ['F', 'VAC'];
-    const normalizedValue = value == null || value === '' ? '1' : String(value);
+
+    let normalizedValue = value == null || value === '' ? '1' : String(value).trim();
+
+    // Prima Dominical viene de MySQL como DECIMAL(10,2), por ejemplo "1.00".
+    // El combo solo tiene opciones "0" y "1". Si comparamos "1.00" contra
+    // "1" con === nunca coincide y el navegador deja seleccionada la primera
+    // opción, que es 0. Por eso se normaliza únicamente este campo a entero.
+    if (fieldName === 'Prima Dominical') {
+        const numericValue = Number(normalizedValue);
+        normalizedValue = Number.isFinite(numericValue) ? String(Math.trunc(numericValue)) : '0';
+    }
 
     let availableOptions = [...options];
     if (fieldName === 'DOMINGO') {
@@ -959,7 +997,11 @@ function renderComboBox(fieldName, value, options = [ "1", "F", "0.5TE", "1TE", 
 
     const optionsHTML = availableOptions.map(option => {
         const optionValue = String(option);
-        return `<option value="${optionValue}" ${normalizedValue === optionValue ? 'selected' : ''}>${optionValue}</option>`;
+        const isSelected = fieldName === 'Prima Dominical'
+            ? Number(normalizedValue) === Number(optionValue)
+            : normalizedValue === optionValue;
+
+        return `<option value="${optionValue}" ${isSelected ? 'selected' : ''}>${optionValue}</option>`;
     }).join('');
 
     return `
@@ -1126,7 +1168,43 @@ function toggleEdit(button) {
         record.VIERNES = VIERNES;
         record.SABADO = SABADO;
         record.DOMINGO = DOMINGO;
-        record['Prima dominical'] = PRIMA_DOMINICAL;
+        // Actualizar la propiedad de Prima Dominical.  Siempre intentamos
+        // persistir el valor en la clave con D mayúscula para mantener un
+        // alias coherente (correspondiente al que expone el servidor).  Si el
+        // registro aún contiene la variante con d minúscula se actualiza esa
+        // clave también por compatibilidad.  Si ninguna clave existe se crea
+        // la versión con D mayúscula por defecto.
+        /*
+         * Actualizar la propiedad de Prima Dominical en el objeto de asistencia.
+         * Existe la posibilidad de que la clave se guarde con distintas
+         * combinaciones de mayúsculas/minúsculas o incluso caracteres
+         * invisibles (por ejemplo, un espacio no rompible).  Para evitar
+         * que el valor quede desfasado, recorremos todas las claves del
+         * registro y actualizamos aquellas que, al normalizarse (trim y
+         * conversión a minúsculas), coinciden con "prima dominical".
+         * Si al finalizar no se actualizó ninguna clave, agregamos la
+         * variante estándar con D mayúscula.  De esta forma nos
+         * aseguramos de que todas las representaciones estén alineadas y
+         * la tabla renderizada refleje el valor actualizado.
+         */
+        let primaUpdated = false;
+        Object.keys(record).forEach(key => {
+            if (typeof key === 'string') {
+                // Normalizar clave: reemplazar espacios no rompibles por espacios
+                // normales, recortar espacios al inicio/final y convertir a
+                // minúsculas.  Así podemos detectar tanto "Prima Dominical"
+                // (con \u00a0) como variantes en mayúsculas/minúsculas.
+                const normalizedKey = key.replace(/\u00a0/g, ' ').trim().toLowerCase();
+                if (normalizedKey === 'prima dominical') {
+                    record[key] = PRIMA_DOMINICAL;
+                    primaUpdated = true;
+                }
+            }
+        });
+        if (!primaUpdated) {
+            // Crear o sobrescribir la clave estándar
+            record['Prima Dominical'] = PRIMA_DOMINICAL;
+        }
         record.Compensacion = COMPENSACION;
         record.Comision = COMISION;
         record['Bono productividad'] = BONO_PRODUCTIVIDAD;
@@ -1606,6 +1684,12 @@ function SoloIncidenciasCompaq() {
         for (let j = 0; j < table.rows[i].cells.length - 1; j++) {
             const cell = table.rows[i].cells[j];
             const columnName = headers[j];
+            // Normalizar el nombre de columna reemplazando espacios no
+            // rompibles (\u00a0) por espacios regulares y convirtiendo a
+            // mayúsculas.  Esto permite comparar claves como "Prima Dominical"
+            // (con NBSP) con la constante "PRIMA DOMINICAL" y resuelve
+            // discrepancias de mayúsculas/minúsculas.
+            const columnKey = columnName.replace(/\u00a0/g, ' ').trim().toUpperCase();
             let rawValue = "";
 
             if (cell.querySelector('select')) {
@@ -1622,10 +1706,10 @@ function SoloIncidenciasCompaq() {
                 cellNotesValue = rawValue.toLowerCase();
             }
 
-            if (dayColumns.includes(columnName)) {
+            if (dayColumns.includes(columnKey)) {
                 const translated = translateValue(rawValue);
                 finalValue = (translated === "1") ? null : translated;
-            } else if (numericColumns.includes(columnName)) {
+            } else if (numericColumns.includes(columnKey)) {
                 /*
                  * Para columnas numéricas usamos el valor numérico de la traducción.
                  * El cálculo por defecto buscaba dígitos en la cadena traducida con
@@ -1640,7 +1724,8 @@ function SoloIncidenciasCompaq() {
                  * utilizamos un patrón que permite números con o sin cero inicial
                  * (\d*\.?\d+) para obtener el número de la cadena traducida.
                  */
-                if (columnName === "TOTAL EXTRA" && /TE$/.test(rawValue)) {
+                // Usar columnKey para la comparación normalizada en vez de columnName
+                if (columnKey === "TOTAL EXTRA" && /TE$/.test(rawValue)) {
                     // Extraer la cantidad de horas de TE (por ejemplo "0.5TE" -> 0.5; "2TE" -> 2)
                     const teNum = parseFloat(rawValue.replace(/TE$/, '')) || 0;
                     finalValue = !isNaN(teNum) && teNum !== 0 ? teNum : null;
@@ -1654,7 +1739,7 @@ function SoloIncidenciasCompaq() {
                         finalValue = null;
                     }
                 }
-            } else if (columnName === "PRIMA DOMINICAL") {
+            } else if (columnKey === "PRIMA DOMINICAL") {
                 const numVal = parseFloat(rawValue);
                 finalValue = !isNaN(numVal) && numVal !== 0 ? numVal : null;
             } else {
@@ -1663,9 +1748,9 @@ function SoloIncidenciasCompaq() {
             }
 
             // Evaluar si se incluye la fila
-            if ((dayColumns.includes(columnName) && rawValue !== "1") ||
-                (columnName === "PRIMA DOMINICAL" && rawValue === "1") ||
-                (numericColumns.includes(columnName) && finalValue !== null)) {
+            if ((dayColumns.includes(columnKey) && rawValue !== "1") ||
+                (columnKey === "PRIMA DOMINICAL" && rawValue === "1") ||
+                (numericColumns.includes(columnKey) && finalValue !== null)) {
                 includeRow = true;
             }
 
@@ -1724,6 +1809,10 @@ function SoloIncidenciasCHC() {
         for (let j = 0; j < table.rows[i].cells.length - 1; j++) {
             const cell = table.rows[i].cells[j];
             const columnName = headers[j];
+            // Normalizar la columna reemplazando espacios no rompibles por
+            // espacios regulares y convertir a mayúsculas.  Así, claves como
+            // "Prima Dominical" se comparan correctamente con "PRIMA DOMINICAL".
+            const columnKey = columnName.replace(/\u00a0/g, ' ').trim().toUpperCase();
             let rawValue = "";
 
             if (cell.querySelector('select')) {
@@ -1740,10 +1829,10 @@ function SoloIncidenciasCHC() {
                 cellNotesValue = rawValue.toLowerCase();
             }
 
-            if (dayColumns.includes(columnName)) {
+            if (dayColumns.includes(columnKey)) {
                 const translated = translateValue(rawValue);
                 finalValue = (translated === "1") ? null : translated;
-            } else if (numericColumns.includes(columnName)) {
+            } else if (numericColumns.includes(columnKey)) {
                 /*
                  * Al convertir columnas numéricas a valores reales usamos la traducción
                  * para obtener el número. El patrón original /\d+(\.\d+)?/ falla
@@ -1754,7 +1843,8 @@ function SoloIncidenciasCHC() {
                  * En otros casos extraemos cualquier número incluyendo los que
                  * empiezan con punto usando /\d*\.?\d+/.
                  */
-                if (columnName === "TOTAL EXTRA" && /TE$/.test(rawValue)) {
+                // Comparar usando columnKey normalizado
+                if (columnKey === "TOTAL EXTRA" && /TE$/.test(rawValue)) {
                     const teNum = parseFloat(rawValue.replace(/TE$/, '')) || 0;
                     finalValue = !isNaN(teNum) && teNum !== 0 ? teNum : null;
                 } else {
@@ -1767,7 +1857,7 @@ function SoloIncidenciasCHC() {
                         finalValue = null;
                     }
                 }
-            } else if (columnName === "PRIMA DOMINICAL") {
+            } else if (columnKey === "PRIMA DOMINICAL") {
                 const numVal = parseFloat(rawValue);
                 finalValue = !isNaN(numVal) && numVal !== 0 ? numVal : null;
             } else {
@@ -1776,9 +1866,9 @@ function SoloIncidenciasCHC() {
             }
 
             // Evaluar si se incluye esta fila
-            if ((dayColumns.includes(columnName) && rawValue !== "1") ||
-                (columnName === "PRIMA DOMINICAL" && rawValue === "1") ||
-                (numericColumns.includes(columnName) && finalValue !== null)) {
+            if ((dayColumns.includes(columnKey) && rawValue !== "1") ||
+                (columnKey === "PRIMA DOMINICAL" && rawValue === "1") ||
+                (numericColumns.includes(columnKey) && finalValue !== null)) {
                 includeRow = true;
             }
 
@@ -1847,6 +1937,10 @@ function SoloIncidenciasEYE() {
         for (let j = 0; j < table.rows[i].cells.length - 1; j++) {
             let cell = table.rows[i].cells[j];
             const columnName = headers[j];
+            // Normalizar la clave reemplazando espacios no rompibles por espacios
+            // regulares y convirtiendo a mayúsculas.  Así se detectan
+            // columnas como "Prima Dominical" de forma robusta.
+            const columnKey = columnName.replace(/\u00a0/g, ' ').trim().toUpperCase();
 
             // a) Obtener valor crudo
             let rawValue = "";
@@ -1861,23 +1955,23 @@ function SoloIncidenciasEYE() {
             let finalValue = rawValue;
 
             // b) Mapear departamento si aplica
-            if (columnName === "DEPARTAMENTO" && departmentMap[departamento]) {
+            if (columnKey === "DEPARTAMENTO" && departmentMap[departamento]) {
                 finalValue = departmentMap[departamento];
             }
 
             // c) Guardar valor de NOTAS en minúscula
-            if (columnName === "NOTAS") {
+            if (columnKey === "NOTAS") {
                 cellNotesValue = rawValue.toLowerCase();
             }
 
             // d) Días
-            if (dayColumns.includes(columnName)) {
+            if (dayColumns.includes(columnKey)) {
                 const translated = translateValue(rawValue);
                 finalValue = (translated === "1") ? null : translated;
             }
 
             // e) Numéricas
-            else if (numericColumns.includes(columnName)) {
+            else if (numericColumns.includes(columnKey)) {
                 /*
                  * Extracción numérica para columnas numéricas. Se necesita un patrón
                  * más flexible que /\d+(\.\d+)?/ para valores que empiezan con
@@ -1885,7 +1979,7 @@ function SoloIncidenciasEYE() {
                  * original de TE antes de traducirse, por lo que si el valor crudo
                  * termina con "TE" se extrae la parte numérica previa.
                  */
-                if (columnName === "TOTAL EXTRA" && /TE$/.test(rawValue)) {
+                if (columnKey === "TOTAL EXTRA" && /TE$/.test(rawValue)) {
                     const teNum = parseFloat(rawValue.replace(/TE$/, '')) || 0;
                     finalValue = !isNaN(teNum) && teNum !== 0 ? teNum : null;
                 } else {
@@ -1900,8 +1994,8 @@ function SoloIncidenciasEYE() {
                 }
             }
 
-            // f) Prima Dominical (tratamiento especial)
-            else if (columnName === "PRIMA DOMINICAL") {
+            // f) Prima Dominical (tratamiento especial)
+            else if (columnKey === "PRIMA DOMINICAL") {
                 const numVal = parseFloat(rawValue);
                 finalValue = !isNaN(numVal) && numVal !== 0 ? numVal : null;
             }
@@ -1913,9 +2007,9 @@ function SoloIncidenciasEYE() {
             }
 
             // h) Incluir fila si hay incidencias
-            if ((dayColumns.includes(columnName) && rawValue !== "1") ||
-                (columnName === "PRIMA DOMINICAL" && rawValue === "1") ||
-                (numericColumns.includes(columnName) && finalValue !== null)) {
+            if ((dayColumns.includes(columnKey) && rawValue !== "1") ||
+                (columnKey === "PRIMA DOMINICAL" && rawValue === "1") ||
+                (numericColumns.includes(columnKey) && finalValue !== null)) {
                 includeRow = true;
             }
 
