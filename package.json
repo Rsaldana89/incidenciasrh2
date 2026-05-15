@@ -1,6 +1,6 @@
 {
   "name": "incidencias",
-  "version": "1.8.0",
+  "version": "2.3.0",
   "description": "CHC Incidencias 1.8 - Modulo de Vacaciones RH",
   "main": "index.js",
   "scripts": {

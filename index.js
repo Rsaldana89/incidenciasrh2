@@ -6,10 +6,288 @@ const db = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const vacationRoutes = require('./routes/vacationRoutes');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const XLSX = require('xlsx');
 
 const mysqldump = require('mysqldump');
 const path = require('path');
 const fs = require('fs');
+
+// Configuración de subida de archivos para importaciones de personal
+// Guardamos los archivos temporalmente en memoria. No se escriben al disco.
+const upload = multer({ storage: multer.memoryStorage() });
+
+/**
+ * Función utilitaria para normalizar un código de empleado desde la plantilla.
+ * El input puede contener ceros a la izquierda o caracteres no numéricos.
+ * Devuelve un número entero o null si no es válido.
+ * @param {any} raw
+ */
+function normalizeEmployeeNumber(raw) {
+    const digits = String(raw ?? '').replace(/\D/g, '');
+    if (!digits) return null;
+    return parseInt(digits, 10);
+}
+
+function normalizeImportHeader(value) {
+    return String(value ?? '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9]/g, '')
+        .toLowerCase();
+}
+
+function getImportValue(row, aliases) {
+    const wanted = aliases.map(normalizeImportHeader);
+    for (const key of Object.keys(row || {})) {
+        if (wanted.includes(normalizeImportHeader(key))) {
+            return row[key];
+        }
+    }
+    return '';
+}
+
+function normalizeImportText(value) {
+    return String(value ?? '').trim().toUpperCase();
+}
+
+/**
+ * Convierte fechas de Excel/plantilla a formato MySQL YYYY-MM-DD.
+ * Soporta números seriales de Excel (por ejemplo 43165), objetos Date y textos comunes.
+ * Devuelve null si la fecha viene vacía o no es válida.
+ * @param {any} raw
+ */
+function normalizeDateForMySQL(raw) {
+    if (raw === null || raw === undefined || raw === '') return null;
+
+    // Si XLSX entrega un objeto Date
+    if (raw instanceof Date && !isNaN(raw.getTime())) {
+        return raw.toISOString().slice(0, 10);
+    }
+
+    const value = String(raw).trim();
+    if (!value) return null;
+
+    // Fechas seriales de Excel: 43165 -> 2018-03-06, etc.
+    if (/^\d+(\.\d+)?$/.test(value)) {
+        const serial = Number(value);
+        if (serial > 20000 && serial < 80000) {
+            const utcDays = Math.floor(serial - 25569);
+            const date = new Date(utcDays * 86400 * 1000);
+            if (!isNaN(date.getTime())) return date.toISOString().slice(0, 10);
+        }
+    }
+
+    // Formatos dd/mm/yyyy o dd-mm-yyyy
+    const dmy = value.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+    if (dmy) {
+        let [, dd, mm, yyyy] = dmy;
+        if (yyyy.length === 2) yyyy = Number(yyyy) > 50 ? '19' + yyyy : '20' + yyyy;
+        const date = new Date(Date.UTC(Number(yyyy), Number(mm) - 1, Number(dd)));
+        if (!isNaN(date.getTime())) return date.toISOString().slice(0, 10);
+    }
+
+    // Formatos parseables por JS, por ejemplo yyyy-mm-dd
+    const parsed = new Date(value);
+    if (!isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+
+    return null;
+}
+
+
+/**
+ * Devuelve la fecha actual en formato MySQL YYYY-MM-DD usando la zona horaria
+ * operativa del sistema. Se usa como fecha automática de reingreso cuando el
+ * empleado ya estaba en Baja y la plantilla no trae fecha de reingreso.
+ */
+function getTodayForMySQL() {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Mexico_City',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+    return formatter.format(new Date());
+}
+
+/**
+ * Carga un libro de Excel desde un Buffer y devuelve un array de objetos por fila.
+ * Si el archivo trae varias hojas, prioriza la hoja completa que incluya
+ * estadoempleado, porque las bajas/reingresos deben decidirse con ese campo.
+ * @param {Buffer} buffer
+ */
+function parseExcel(buffer) {
+    const workbook = XLSX.read(buffer, { type: 'buffer' });
+
+    const sheetInfos = workbook.SheetNames.map(sheetName => {
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        const hasEmployeeCodes = rows.some(row => normalizeEmployeeNumber(getImportValue(row, [
+            'codigoempleado', 'codigo empleado', 'Código empleado', 'codigo',
+            'id', 'employee_number', 'numero empleado', 'número empleado'
+        ])));
+        const hasEmployeeStatus = rows.some(row => String(getImportValue(row, [
+            'estadoempleado', 'estado empleado', 'estado'
+        ]) || '').trim() !== '');
+        return { sheetName, rows, hasEmployeeCodes, hasEmployeeStatus };
+    });
+
+    // 1) Mejor opción: hoja con códigos y estadoempleado.
+    const sheetWithStatus = sheetInfos.find(info => info.hasEmployeeCodes && info.hasEmployeeStatus);
+    if (sheetWithStatus) {
+        return sheetWithStatus.rows;
+    }
+
+    // 2) Respaldo: si no existe estado, usar la hoja operativa si tiene códigos.
+    const preferredSheet = sheetInfos.find(info =>
+        normalizeImportHeader(info.sheetName) === normalizeImportHeader('A subir a incidencias') && info.hasEmployeeCodes
+    );
+    if (preferredSheet) {
+        return preferredSheet.rows;
+    }
+
+    // 3) Ultimo respaldo: primera hoja con códigos.
+    const firstWithCodes = sheetInfos.find(info => info.hasEmployeeCodes);
+    if (firstWithCodes) {
+        return firstWithCodes.rows;
+    }
+
+    return sheetInfos.length ? sheetInfos[0].rows : [];
+}
+
+/**
+ * Clasifica las filas de la plantilla en altas nuevas, bajas, reingresos y advertencias.
+ * Consulta la tabla personal para saber qué empleados ya existen.
+ * @param {Array} rows
+ * @returns {Promise<object>} clasificación
+ */
+async function classifyImportRows(rows) {
+    // Obtener todos los IDs existentes de la tabla personal y su departamento actual
+    const existing = await dbQuery('SELECT employee_number, department_name FROM personal');
+    const existingMap = new Map();
+    existing.forEach(row => {
+        existingMap.set(Number(row.employee_number), normalizeImportText(row.department_name));
+    });
+
+    const result = {
+        altas: [],
+        bajas: [],
+        reingresos: [],
+        unchanged: [],
+        // Omitidos / bajas no aplicables: casos informativos que no deben tratarse como error.
+        // Ejemplo: empleado marcado como baja en la plantilla, pero no existe en el sistema.
+        omitidos: [],
+        warnings: []
+    };
+    const seen = new Set();
+    rows.forEach((row, index) => {
+        // Mapear columnas según especificación. Se toleran mayúsculas, espacios,
+        // acentos y variantes comunes de encabezados de Excel.
+        const codigo = normalizeEmployeeNumber(getImportValue(row, [
+            'codigoempleado', 'codigo empleado', 'Código empleado', 'codigo',
+            'id', 'employee_number', 'numero empleado', 'número empleado'
+        ]));
+        if (!codigo) {
+            result.warnings.push({
+                row: index + 2, // considerando encabezado en la primera fila
+                reason: 'Código de empleado no válido',
+                data: row
+            });
+            return;
+        }
+        if (seen.has(codigo)) {
+            result.warnings.push({
+                row: index + 2,
+                reason: 'Empleado duplicado en la plantilla',
+                data: row
+            });
+            return;
+        }
+        seen.add(codigo);
+
+        // Normalización igual que la importación legacy:
+        // nombres, departamentos y puestos se guardan en MAYÚSCULAS.
+        // El correo se guarda en minúsculas.
+        const full_name = normalizeImportText(getImportValue(row, ['nombrelargo', 'nombre largo', 'nombre', 'full_name']));
+        const department_name = normalizeImportText(getImportValue(row, ['descripcion', 'departamento', 'department_name', 'area', 'área']));
+        const puesto = normalizeImportText(getImportValue(row, ['descripcion1', 'puesto', 'cargo']));
+        const start_date = normalizeDateForMySQL(getImportValue(row, ['fechaalta', 'fecha alta', 'start_date']));
+        const fecha_baja = normalizeDateForMySQL(getImportValue(row, ['fechabaja', 'fecha baja']));
+        const fecha_reingreso = normalizeDateForMySQL(getImportValue(row, ['fechareingreso', 'fecha reingreso']));
+        const nss = String(getImportValue(row, ['numerosegurosocial', 'numero seguro social', 'nss'])).trim();
+        const email = String(getImportValue(row, ['CorreoElectronico', 'correo electronico', 'correo electrónico', 'email'])).trim().toLowerCase() || null;
+        const birth_date = normalizeDateForMySQL(getImportValue(row, ['fechanacimiento', 'fecha nacimiento', 'birth_date']));
+        const estado = normalizeImportText(getImportValue(row, ['estadoempleado', 'estado empleado', 'estado']));
+        // Las bajas y reingresos se deciden con el estado de la plantilla.
+        // Esto conserva la lógica original: B/BAJA baja empleados activos;
+        // A/R/ACTIVO/ALTA/REINGRESO reactiva empleados que ya están en Baja.
+        // department_name === BAJA queda solo como respaldo si el área viene
+        // explícitamente como Baja.
+        const incomingIsBaja = estado === 'B' || estado === 'BAJA' || department_name === 'BAJA';
+        const incomingIsActiveOrReingreso = estado === 'A' || estado === 'ACTIVO' || estado === 'ALTA' || estado === 'R' || estado === 'REINGRESO';
+
+        const exists = existingMap.has(codigo);
+        const currentDepartment = existingMap.get(codigo) || '';
+        const wasBaja = currentDepartment === 'BAJA';
+
+        // Construir objeto básico para vista previa
+        const preview = {
+            employee_number: codigo,
+            full_name,
+            department_name,
+            puesto,
+            start_date,
+            fecha_baja: fecha_baja || null,
+            fecha_reingreso: fecha_reingreso || null,
+            birth_date: birth_date || null,
+            nss: nss || null,
+            email,
+        };
+
+        if (!exists) {
+            // Alta nueva
+            if (incomingIsBaja) {
+                // Si viene como baja pero no existe en el sistema, no es una advertencia crítica:
+                // solo se omite porque no hay empleado activo al cual aplicar la baja.
+                result.omitidos.push({
+                    row: index + 2,
+                    reason: 'Baja no aplicable: empleado no existe en el sistema',
+                    data: preview
+                });
+            } else {
+                result.altas.push(preview);
+            }
+        } else {
+            // Existe en la base
+            if (incomingIsBaja) {
+                if (wasBaja) {
+                    // Ya está dado de baja en el sistema; no se vuelve a bajar.
+                    result.unchanged.push(Object.assign({}, preview, {
+                        department_name: 'BAJA',
+                        nota: 'Empleado ya estaba en Baja'
+                    }));
+                } else {
+                    // Baja de empleado activo existente
+                    result.bajas.push(Object.assign({}, preview));
+                }
+            } else if (wasBaja && incomingIsActiveOrReingreso) {
+                // Reingreso: aplica cuando el empleado ya está en Baja en la base
+                // y aparece en la plantilla con estado activo/reingreso.
+                // Si la plantilla no trae fecha de reingreso, usar la fecha actual
+                // para dejar registro del día en que se está reactivando al empleado.
+                result.reingresos.push(Object.assign({}, preview, {
+                    fecha_reingreso: preview.fecha_reingreso || getTodayForMySQL()
+                }));
+            } else {
+                // Sin cambios obligatorios
+                result.unchanged.push(Object.assign({}, preview));
+            }
+        }
+    });
+
+    return result;
+}
+
 
 
 
@@ -756,8 +1034,9 @@ app.get('/admin/personal', authenticateToken, (req, res) => {
         start_date, 
         fecha_baja, 
         fecha_reingreso, 
-        days_pending,   -- Agregado
-        days_taken      -- Agregado
+        birth_date,
+        days_pending,
+        days_taken
     FROM personal
     ORDER BY 
         CASE WHEN department_name = 'Baja' THEN 1 ELSE 0 END, 
@@ -1216,6 +1495,188 @@ app.put('/admin/personal/:employee_number', authenticateToken, (req, res) => {
 
         res.json({ message: 'Empleado actualizado correctamente' });
     });
+});
+
+// ---------------------------------------------------------------------------
+// Nueva funcionalidad: importación de personal desde plantilla Excel
+// Ruta: POST /admin/personal/import-preview
+// Permite subir un archivo Excel y devuelve una clasificación de las filas encontradas
+// en altas, bajas, reingresos, advertencias y sin cambios. No se escriben datos en BD.
+
+app.post('/admin/personal/import-preview', authenticateToken, requireAdminCurrentUser, upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file || !req.file.buffer) {
+            return res.status(400).json({ error: 'No se recibió ningún archivo.' });
+        }
+        // Parsear Excel
+        const rows = parseExcel(req.file.buffer);
+        if (!Array.isArray(rows) || rows.length === 0) {
+            return res.status(400).json({ error: 'El archivo está vacío o no se pudo leer.' });
+        }
+        // Clasificar
+        const result = await classifyImportRows(rows);
+        res.json(result);
+    } catch (error) {
+        console.error('Error en import-preview:', error);
+        res.status(500).json({ error: 'Error al procesar el archivo.' });
+    }
+});
+
+// Ruta: POST /admin/personal/import-confirm
+// Confirma la importación de la plantilla. Debe ejecutarse en transacción.
+// El frontend debe enviar nuevamente el archivo Excel para evitar inconsistencias.
+
+app.post('/admin/personal/import-confirm', authenticateToken, requireAdminCurrentUser, upload.single('file'), async (req, res) => {
+    const adminUsername = req.user.username;
+    try {
+        if (!req.file || !req.file.buffer) {
+            return res.status(400).json({ error: 'No se recibió ningún archivo.' });
+        }
+        const rows = parseExcel(req.file.buffer);
+        if (!Array.isArray(rows) || rows.length === 0) {
+            return res.status(400).json({ error: 'El archivo está vacío o no se pudo leer.' });
+        }
+        const classification = await classifyImportRows(rows);
+        // Iniciar transacción
+        db.getConnection(async (connErr, connection) => {
+            if (connErr) {
+                console.error('Error obteniendo conexión para import-confirm:', connErr);
+                return res.status(500).json({ error: 'Error interno al iniciar la transacción.' });
+            }
+            connection.beginTransaction(async (txErr) => {
+                if (txErr) {
+                    connection.release();
+                    console.error('Error al iniciar la transacción:', txErr);
+                    return res.status(500).json({ error: 'Error interno al iniciar la transacción.' });
+                }
+                try {
+                    const year = new Date().getFullYear();
+                    // ALTAS
+                    for (const emp of classification.altas) {
+                        // Insertar empleado
+                        await new Promise((resolve, reject) => {
+                            const insertQuery = `INSERT INTO personal (employee_number, full_name, rfc, curp, nss, email, puesto, department_name, start_date, fecha_baja, fecha_reingreso, birth_date) VALUES (?, ?, NULL, NULL, ?, ?, ?, ?, ?, NULL, NULL, ?)`;
+                            connection.query(insertQuery, [emp.employee_number, emp.full_name, emp.nss || null, emp.email, emp.puesto || null, emp.department_name || null, emp.start_date || null, emp.birth_date || null], (err) => {
+                                if (err) {
+                                    return reject(err);
+                                }
+                                resolve();
+                            });
+                        });
+                        // Generar asistencias del año actual
+                        const attendanceRecords = [];
+                        for (let week = 1; week <= 52; week++) {
+                            attendanceRecords.push([emp.employee_number, week, year, '1','1','1','1','1','1','1']);
+                        }
+                        await new Promise((resolve, reject) => {
+                            const attQuery = `INSERT INTO asistencias (EMPLOYEE_NUMBER, WEEK_NUMBER, YEAR, LUNES, MARTES, MIERCOLES, JUEVES, VIERNES, SABADO, DOMINGO) VALUES ?`;
+                            connection.query(attQuery, [attendanceRecords], (err) => {
+                                if (err) return reject(err);
+                                resolve();
+                            });
+                        });
+                    }
+                    // BAJAS
+                    for (const emp of classification.bajas) {
+                        // Solo aplicar baja si se proporciona una fecha de baja
+                        if (!emp.fecha_baja) {
+                            classification.warnings.push({ row: emp.employee_number, reason: 'Fecha de baja vacía; no se aplicó la baja', data: emp });
+                            continue;
+                        }
+                        await new Promise((resolve, reject) => {
+                            const updateQuery = `UPDATE personal SET department_name = 'Baja', fecha_baja = ? WHERE employee_number = ?`;
+                            connection.query(updateQuery, [emp.fecha_baja, emp.employee_number], (err) => {
+                                if (err) return reject(err);
+                                resolve();
+                            });
+                        });
+                    }
+                    // REINGRESOS
+                    for (const emp of classification.reingresos) {
+                        await new Promise((resolve, reject) => {
+                            // Determinar fecha de reingreso: usar la fecha de la plantilla si viene;
+                            // si no, usar la fecha actual del día en que se confirma el reingreso.
+                            const fechaReing = emp.fecha_reingreso || getTodayForMySQL();
+                            const updateQuery = `UPDATE personal SET department_name = ?, fecha_reingreso = ?, fecha_baja = NULL, puesto = IF(? IS NOT NULL AND ? <> '', ?, puesto), nss = IF(? IS NOT NULL AND ? <> '', ?, nss), email = IF(? IS NOT NULL AND ? <> '', ?, email), birth_date = IF(? IS NOT NULL AND ? <> '', ?, birth_date) WHERE employee_number = ?`;
+                            const params = [emp.department_name || null, fechaReing,
+                                emp.puesto, emp.puesto, emp.puesto,
+                                emp.nss, emp.nss, emp.nss,
+                                emp.email, emp.email, emp.email,
+                                emp.birth_date, emp.birth_date, emp.birth_date,
+                                emp.employee_number
+                            ];
+                            connection.query(updateQuery, params, (err) => {
+                                if (err) return reject(err);
+                                resolve();
+                            });
+                        });
+                        // Verificar si existen asistencias para el año actual
+                        const [exists] = await new Promise((resolve, reject) => {
+                            const checkQuery = `SELECT COUNT(*) AS count FROM asistencias WHERE EMPLOYEE_NUMBER = ? AND YEAR = ?`;
+                            connection.query(checkQuery, [emp.employee_number, year], (err, rows) => {
+                                if (err) return reject(err);
+                                resolve(rows);
+                            });
+                        });
+                        if (exists.count === 0) {
+                            // Crear asistencias
+                            const attendanceRecords = [];
+                            for (let week = 1; week <= 52; week++) {
+                                attendanceRecords.push([emp.employee_number, week, year, '1','1','1','1','1','1','1']);
+                            }
+                            await new Promise((resolve, reject) => {
+                                const attQuery = `INSERT INTO asistencias (EMPLOYEE_NUMBER, WEEK_NUMBER, YEAR, LUNES, MARTES, MIERCOLES, JUEVES, VIERNES, SABADO, DOMINGO) VALUES ?`;
+                                connection.query(attQuery, [attendanceRecords], (err) => {
+                                    if (err) return reject(err);
+                                    resolve();
+                                });
+                            });
+                        }
+                    }
+                    // Si todo salió bien, aplicar commit
+                    connection.commit(async (commitErr) => {
+                        if (commitErr) {
+                            connection.rollback(() => {
+                                connection.release();
+                            });
+                            console.error('Error en commit de import-confirm:', commitErr);
+                            return res.status(500).json({ error: 'Error al confirmar la importación.' });
+                        }
+                        // Registrar en logs
+                        logActivity('Importación de personal (nueva)', adminUsername, {
+                            total_leidos: rows.length,
+                            altas: classification.altas.length,
+                            bajas: classification.bajas.length,
+                            reingresos: classification.reingresos.length,
+                            omitidos: classification.omitidos ? classification.omitidos.length : 0,
+                            warnings: classification.warnings.length
+                        });
+                        connection.release();
+                        res.json({
+                            message: 'Importación completada correctamente.',
+                            summary: {
+                                altas: classification.altas.length,
+                                bajas: classification.bajas.length,
+                                reingresos: classification.reingresos.length,
+                                omitidos: classification.omitidos ? classification.omitidos.length : 0,
+                                warnings: classification.warnings
+                            }
+                        });
+                    });
+                } catch (err) {
+                    // Rollback en caso de error
+                    connection.rollback(() => {
+                        connection.release();
+                    });
+                    console.error('Error durante import-confirm:', err);
+                    res.status(500).json({ error: 'Error al aplicar la importación. Se revirtió la operación.' });
+                }
+            });
+        });
+    } catch (error) {
+        console.error('Error en import-confirm:', error);
+        res.status(500).json({ error: 'Error inesperado al procesar la importación.' });
+    }
 });
 
 

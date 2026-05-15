@@ -9,8 +9,8 @@
     <div class="container">
         <h1>
             <img src="Logoheader.png" alt="Logo" class="logo">
-            CHC BITACORA RH 2.0
-            <span class="version-info">Versión 2.0</span> <!-- Agregamos la versión aquí -->
+            CHC BITACORA RH 2.3
+            <span class="version-info">Versión 2.3</span> <!-- Actualización de versión -->
         </h1>
         <!-- Barra de Herramientas -->
         <div class="toolbar">
@@ -167,6 +167,24 @@ select.catalog-warning {
         <pre id="bulk-email-preview-content" style="white-space: pre-wrap;"></pre>
     </div>
     <div id="bulk-email-notification" style="margin-top: 20px; display: none;"></div>
+</div>
+
+<!-- Nueva importación de personal -->
+<div id="new-import-container" style="margin-top: 34px; padding-top: 24px; border-top: 1px solid #d9e3d2;">
+    <h3>Nueva importación de personal</h3>
+    <p style="margin: 8px 0 14px; color: #4d5c4f; font-size: 15px;">
+        Sube un archivo <strong>.xlsx</strong> o <strong>.xls</strong> con la nueva plantilla de personal. El sistema clasificará las filas en altas nuevas, bajas, reingresos y advertencias. Primero podrás previsualizar los cambios antes de confirmarlos.
+    </p>
+    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+        <input type="file" id="new-import-file" accept=".xlsx,.xls" />
+        <button type="button" onclick="previewNewImport()">Previsualizar importación</button>
+        <button id="new-import-confirm-btn" type="button" onclick="confirmNewImport()" style="display: none;">Confirmar importación</button>
+    </div>
+    <div id="new-import-preview" style="margin-top: 20px; display: none; border: 1px solid #ccc; padding: 12px; border-radius: 6px; background: #f8fbf7;">
+        <h4 style="margin-top: 0;">Vista previa de importación</h4>
+        <div id="new-import-preview-content" style="max-height: 420px; overflow: auto;"></div>
+    </div>
+    <div id="new-import-notification" style="margin-top: 20px; display: none; color: #333;"></div>
 </div>
 
 
@@ -329,6 +347,268 @@ document.addEventListener('DOMContentLoaded', function () {
         function uniqueCatalogValues(values) {
             return [...new Set((values || []).map(value => (value || '').trim()).filter(Boolean))];
         }
+
+// -----------------------------
+// Nueva importación de personal (frontend)
+function escapeHtml(value) {
+    return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function formatEmployeeNumber(value) {
+    const raw = String(value == null ? '' : value).replace(/\D/g, '');
+    return raw ? raw.padStart(5, '0') : '';
+}
+
+function valueOrDash(value) {
+    const text = String(value == null ? '' : value).trim();
+    return text || '—';
+}
+
+function renderImportPreviewTable(title, rows, columns, accentColor) {
+    const safeRows = Array.isArray(rows) ? rows : [];
+    const countLabel = safeRows.length === 1 ? 'registro' : 'registros';
+    const borderColor = accentColor || '#2f855a';
+
+    let html = `
+        <section style="margin-bottom: 22px; border: 1px solid #d7e6dc; border-radius: 10px; overflow: hidden; background: #fff;">
+            <div style="display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 12px; background: #eef7f0; border-left: 6px solid ${borderColor};">
+                <strong style="font-size: 15px; color: #254b37;">${escapeHtml(title)}</strong>
+                <span style="font-size: 13px; color: #4b6354;">${safeRows.length} ${countLabel}</span>
+            </div>`;
+
+    if (safeRows.length === 0) {
+        html += `<div style="padding: 12px; color: #607066; font-size: 13px;">No hay registros en esta sección.</div></section>`;
+        return html;
+    }
+
+    html += `
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; min-width: 760px; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                    <tr style="background: #f5faf6; color: #274c38; text-align: left;">`;
+
+    columns.forEach(col => {
+        html += `<th style="padding: 9px 10px; border-bottom: 1px solid #d7e6dc; white-space: nowrap;">${escapeHtml(col.label)}</th>`;
+    });
+
+    html += `</tr></thead><tbody>`;
+
+    safeRows.forEach(row => {
+        html += `<tr style="border-bottom: 1px solid #edf2ef;">`;
+        columns.forEach(col => {
+            let cellValue = typeof col.get === 'function' ? col.get(row) : row[col.key];
+            html += `<td style="padding: 8px 10px; vertical-align: top; color: #263b2f;">${escapeHtml(valueOrDash(cellValue))}</td>`;
+        });
+        html += `</tr>`;
+    });
+
+    html += `</tbody></table></div></section>`;
+    return html;
+}
+
+function renderOmitidosTable(omitidos) {
+    const rows = Array.isArray(omitidos) ? omitidos : [];
+    return renderImportPreviewTable('5. Omitidos / bajas no aplicables', rows, [
+        { label: 'Fila', get: item => item.row || '' },
+        { label: 'Motivo', get: item => item.reason || '' },
+        { label: 'ID', get: item => item.data ? formatEmployeeNumber(item.data.employee_number || item.data.codigoempleado || item.data.codigoEmpleado || item.data.codigo) : '' },
+        { label: 'Nombre', get: item => item.data ? (item.data.full_name || item.data.nombrelargo || item.data.nombreLargo || item.data['nombre largo'] || '') : '' },
+        { label: 'Departamento plantilla', get: item => item.data ? (item.data.department_name || item.data.descripcion || '') : '' },
+        { label: 'Fecha baja', get: item => item.data ? (item.data.fecha_baja || '') : '' }
+    ], '#b7791f');
+}
+
+function renderWarningsTable(warnings) {
+    const rows = Array.isArray(warnings) ? warnings : [];
+    return renderImportPreviewTable('Advertencias', rows, [
+        { label: 'Fila', get: item => item.row || '' },
+        { label: 'Motivo', get: item => item.reason || '' },
+        { label: 'ID', get: item => item.data ? formatEmployeeNumber(item.data.employee_number || item.data.codigoempleado || item.data.codigoEmpleado || item.data.codigo) : '' },
+        { label: 'Nombre', get: item => item.data ? (item.data.full_name || item.data.nombrelargo || item.data.nombreLargo || item.data['nombre largo'] || '') : '' },
+        { label: 'Departamento', get: item => item.data ? (item.data.department_name || item.data.descripcion || '') : '' }
+    ], '#c05621');
+}
+
+function renderNewImportPreview(data) {
+    const altas = data.altas || [];
+    const bajas = data.bajas || [];
+    const reingresos = data.reingresos || [];
+    const unchanged = data.unchanged || [];
+    const omitidos = data.omitidos || [];
+    const warnings = data.warnings || [];
+
+    const commonColumns = [
+        { label: 'ID', get: emp => formatEmployeeNumber(emp.employee_number) },
+        { label: 'Nombre', key: 'full_name' },
+        { label: 'Departamento', key: 'department_name' },
+        { label: 'Puesto', key: 'puesto' },
+        { label: 'NSS', key: 'nss' },
+        { label: 'Correo', key: 'email' }
+    ];
+
+    let html = `
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
+            <span style="padding: 6px 10px; border-radius: 999px; background: #dff3e5; color: #255c3b; font-weight: 700;">Altas nuevas: ${altas.length}</span>
+            <span style="padding: 6px 10px; border-radius: 999px; background: #fde8e8; color: #8a2a2a; font-weight: 700;">Bajas: ${bajas.length}</span>
+            <span style="padding: 6px 10px; border-radius: 999px; background: #e6f0ff; color: #274472; font-weight: 700;">Reingresos: ${reingresos.length}</span>
+            <span style="padding: 6px 10px; border-radius: 999px; background: #f0f2f1; color: #4d5a52; font-weight: 700;">Sin cambios: ${unchanged.length}</span>
+            <span style="padding: 6px 10px; border-radius: 999px; background: #fff4df; color: #7a4b00; font-weight: 700;">Omitidos / bajas no aplicables: ${omitidos.length}</span>
+            <span style="padding: 6px 10px; border-radius: 999px; background: #fff4df; color: #7a4b00; font-weight: 700;">Advertencias: ${warnings.length}</span>
+        </div>
+        <p style="margin: 0 0 14px; color: #4d5c4f; font-size: 13px;">
+            Las altas nuevas se muestran primero para facilitar la revisión antes de confirmar la importación.
+        </p>`;
+
+    // Orden fijo solicitado: altas nuevas primero.
+    html += renderImportPreviewTable('1. Empleados a dar de alta', altas, [
+        ...commonColumns,
+        { label: 'Fecha alta', key: 'start_date' },
+        { label: 'Fecha nacimiento', key: 'birth_date' }
+    ], '#2f855a');
+
+    html += renderImportPreviewTable('2. Empleados a dar de baja', bajas, [
+        { label: 'ID', get: emp => formatEmployeeNumber(emp.employee_number) },
+        { label: 'Nombre', key: 'full_name' },
+        { label: 'Departamento actual / plantilla', key: 'department_name' },
+        { label: 'Puesto', key: 'puesto' },
+        { label: 'Fecha baja', key: 'fecha_baja' }
+    ], '#c53030');
+
+    html += renderImportPreviewTable('3. Empleados a reingresar', reingresos, [
+        ...commonColumns,
+        { label: 'Fecha reingreso', key: 'fecha_reingreso' },
+        { label: 'Fecha alta original / plantilla', key: 'start_date' }
+    ], '#2b6cb0');
+
+    html += renderImportPreviewTable('4. Empleados sin cambios', unchanged, [
+        { label: 'ID', get: emp => formatEmployeeNumber(emp.employee_number) },
+        { label: 'Nombre', key: 'full_name' },
+        { label: 'Departamento', key: 'department_name' },
+        { label: 'Puesto', key: 'puesto' }
+    ], '#718096');
+
+    html += renderOmitidosTable(omitidos);
+    html += renderWarningsTable(warnings);
+    return html;
+}
+
+// Función para previsualizar la importación de la plantilla nueva
+function previewNewImport() {
+    const fileInput = document.getElementById('new-import-file');
+    const previewContainer = document.getElementById('new-import-preview');
+    const previewContent = document.getElementById('new-import-preview-content');
+    const confirmBtn = document.getElementById('new-import-confirm-btn');
+    const notification = document.getElementById('new-import-notification');
+    notification.style.display = 'none';
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        alert('Seleccione un archivo Excel para importar.');
+        return;
+    }
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    const token = localStorage.getItem('token');
+    fetch('/admin/personal/import-preview', {
+        method: 'POST',
+        headers: {
+            'Authorization': 'Bearer ' + token
+        },
+        body: formData
+    })
+        .then(response => {
+            if (!response.ok) throw new Error('Error al procesar el archivo.');
+            return response.json();
+        })
+        .then(data => {
+            previewContent.innerHTML = renderNewImportPreview(data);
+            previewContainer.style.display = 'block';
+            // Mostrar botón de confirmar si hay altas, bajas o reingresos
+            if ((data.altas && data.altas.length) || (data.bajas && data.bajas.length) || (data.reingresos && data.reingresos.length)) {
+                confirmBtn.style.display = 'inline-block';
+            } else {
+                confirmBtn.style.display = 'none';
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Hubo un error al previsualizar la importación.');
+        });
+}
+
+// Función para confirmar la importación de la plantilla nueva
+function confirmNewImport() {
+    const fileInput = document.getElementById('new-import-file');
+    const confirmBtn = document.getElementById('new-import-confirm-btn');
+    const notification = document.getElementById('new-import-notification');
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        alert('Seleccione un archivo para importar.');
+        return;
+    }
+    if (!confirm('¿Desea aplicar los cambios detectados? Esta acción no se puede deshacer.')) {
+        return;
+    }
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    const token = localStorage.getItem('token');
+    confirmBtn.disabled = true;
+    fetch('/admin/personal/import-confirm', {
+        method: 'POST',
+        headers: {
+            'Authorization': 'Bearer ' + token
+        },
+        body: formData
+    })
+        .then(async response => {
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data.error || 'Error al confirmar la importación.');
+            }
+            return data;
+        })
+        .then(data => {
+            const summary = data.summary || {};
+            const altas = Number(summary.altas || 0);
+            const bajas = Number(summary.bajas || 0);
+            const reingresos = Number(summary.reingresos || 0);
+            const omitidos = Number(summary.omitidos || 0);
+            const warnings = Array.isArray(summary.warnings) ? summary.warnings.length : Number(summary.warnings || 0);
+            const successMessage = `Importación aplicada con éxito. Cambios realizados: ${altas} altas, ${bajas} bajas y ${reingresos} reingresos. Omitidos / bajas no aplicables: ${omitidos}. Advertencias: ${warnings}. La página se recargará para mostrar la información actualizada.`;
+
+            notification.style.display = 'block';
+            notification.textContent = successMessage;
+            notification.style.padding = '12px';
+            notification.style.borderRadius = '6px';
+            notification.style.color = '#1f5f3a';
+            notification.style.backgroundColor = '#dff0d8';
+            notification.style.border = '1px solid #b7ddb4';
+            alert(successMessage);
+            confirmBtn.disabled = false;
+            // Ocultar confirmación para evitar duplicados
+            confirmBtn.style.display = 'none';
+            // Recargar la página completa para que se reflejen los cambios igual que en otros procesos de plantilla.
+            setTimeout(() => {
+                window.location.reload();
+            }, 1800);
+        })
+        .catch(err => {
+            console.error(err);
+            notification.style.display = 'block';
+            notification.textContent = err.message || 'Error al confirmar la importación.';
+            notification.style.padding = '12px';
+            notification.style.borderRadius = '6px';
+            notification.style.color = '#a94442';
+            notification.style.backgroundColor = '#f2dede';
+            notification.style.border = '1px solid #ebccd1';
+            confirmBtn.disabled = false;
+        });
+}
+
 
         function loadPositions() {
     fetch('puestos.json')
@@ -831,20 +1111,35 @@ function calcularEdadDesdeFechaNacimiento(birthDate) {
 
 function buildPersonalRowHtml(emp) {
     const role = localStorage.getItem('role');
-    const birthDateFromRFC = extractBirthDateFromRFC(emp.rfc);
-    const fechaNacimiento = birthDateFromRFC ? formatDate(birthDateFromRFC) : 'N/D';
-    const edad = birthDateFromRFC ? calcularEdadDesdeFechaNacimiento(birthDateFromRFC) : 'N/D';
+    // Determinar fecha de nacimiento y edad
+    let birthDateParsed = null;
+    if (emp.birth_date) {
+        const parsed = new Date(emp.birth_date);
+        if (!isNaN(parsed.getTime())) {
+            birthDateParsed = parsed;
+        }
+    }
+    if (!birthDateParsed) {
+        // Fallback a RFC
+        birthDateParsed = extractBirthDateFromRFC(emp.rfc);
+    }
+    const fechaNacimiento = birthDateParsed ? formatDate(birthDateParsed) : 'N/D';
+    const edad = birthDateParsed ? calcularEdadDesdeFechaNacimiento(birthDateParsed) : 'N/D';
     const antiguedad = calcularAntiguedad(emp.start_date, emp.fecha_reingreso);
     const isValidDepartment = ALL_DEPARTMENTS.includes(emp.department_name);
     const isValidPosition = !emp.puesto || ALL_POSITIONS.includes(emp.puesto);
     const isBaja = emp.department_name.toLowerCase() === 'baja';
 
+    // Para usuarios que no son administradores, ocultar RFC y CURP
+    const displayRfc = role === 'admin' ? (emp.rfc || '') : '';
+    const displayCurp = role === 'admin' ? (emp.curp || '') : '';
+
     let row = `
             <tr data-employee-number="${emp.employee_number}">
                 <td>${emp.employee_number.toString().padStart(5, '0')}</td>
                 <td>${emp.full_name}</td>
-                <td>${emp.rfc || ''}</td>
-                <td>${emp.curp || ''}</td>
+                <td>${displayRfc}</td>
+                <td>${displayCurp}</td>
                 <td>${emp.nss || ''}</td>
                 <td>${emp.email || ''}</td>
                 <td class="${isValidPosition ? '' : 'invalid-position'}">${emp.puesto || ''}</td>

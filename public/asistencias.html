@@ -1413,7 +1413,13 @@ function exportarAsistenciasCompaq() {
             headers.push(table.rows[0].cells[j].innerText);
         }
     }
-    data.push(headers.map((header) => header.trim() === 'DT' ? 'DDL' : header));
+    // Cambiar encabezados de DT→DDL y DFT→DDOL para reportes Compaq
+    data.push(headers.map((header) => {
+        const trimmed = header.trim();
+        if (trimmed === 'DT') return 'DDL';
+        if (trimmed === 'DFT') return 'DDOL';
+        return header;
+    }));
 
     // Recorrer las filas de la tabla (exceptuando los encabezados)
     for (let i = 1; i < table.rows.length; i++) {
@@ -1444,8 +1450,9 @@ function exportarAsistenciasCompaq() {
                 value = ''; // Dejar vacío si el valor es "sin notas"
             }
 
-            // Realizar la traducción de cualquier valor en la tabla (excepto encabezados)
-            value = translateValue(value);
+            // Realizar la traducción de cualquier valor en la tabla (excepto encabezados). Usar la versión
+            // específica para Compaq para incluir DFT→DDOL.
+            value = translateValueCompaq(value);
 
             rowData.push(value);
         }
@@ -1461,34 +1468,39 @@ function exportarAsistenciasCompaq() {
     XLSX.writeFile(wb, 'asistencias_compaq.xlsx');
 }
 
-// Función para traducir los valores de "TE" a "HE2" y "F" a "FINJ"
+// Función base para traducir los valores de "TE" a "HE2" y "F" a "FINJ".
+// Esta función se utiliza para la mayoría de exportaciones. No incluye
+// mapeos específicos de Compaq como DFT→DDOL para evitar afectar otros reportes.
 function translateValue(value) {
     let result = String(value == null ? '' : value).trim();
 
+    // Caso especial: 0.5TE se traduce a .3HE2
     if (result === '0.5TE') {
         result = '.3HE2';
     } else {
+        // F → FINJ, manteniendo el número previo (default 1)
         result = result.replace(/\b(\d*(?:\.\d+)?)F\b/g, function(match, p1) {
             const number = p1 || '1';
             return number + 'FINJ';
         });
-
+        // TE → HE2
         result = result.replace(/\b(\d*(?:\.\d+)?)TE\b/g, function(match, p1) {
             const number = p1 || '1';
             return number + 'HE2';
         });
-
+        // DT → DDL
         result = result.replace(/\b(\d*(?:\.\d+)?)DT\b/g, function(match, p1) {
             const number = p1 || '';
             return number + 'DDL';
         });
-
+        // M → MINJ
         result = result.replace(/\b(\d*(?:\.\d+)?)M\b/g, function(match, p1) {
             const number = p1 || '1';
             return number + 'MINJ';
         });
     }
 
+    // Eliminar valores 0 (por ejemplo 0FINJ, 0HE2, 0MINJ)
     const matchTranslated = result.match(/^(\d+(?:\.\d+)?)(FINJ|HE2|MINJ)$/);
     if (matchTranslated) {
         const number = parseFloat(matchTranslated[1]);
@@ -1497,10 +1509,31 @@ function translateValue(value) {
         }
     }
 
+    // Remover casos de 0DDL, 0DFT, 0INC o 0VAC, y '0' aislado
     if (/^0(DDL|DFT|INC|VAC)$/.test(result) || result === '0') {
         result = '';
     }
 
+    return result;
+}
+
+// Función de traducción específica para reportes Compaq. Extiende
+// translateValue con la conversión DFT→DDOL y considera 0DDOL como vacío.
+function translateValueCompaq(value) {
+    // Primero aplicar la traducción base
+    let result = translateValue(value);
+
+    // Si el valor aún contiene DFT, traducirlo a DDOL. Esta expresión captura
+    // posibles cantidades numéricas previas (por ejemplo 2DFT -> 2DDOL).
+    result = String(result == null ? '' : result).replace(/\b(\d*(?:\.\d+)?)DFT\b/g, function(match, p1) {
+        const number = p1 || '';
+        return number + 'DDOL';
+    });
+
+    // Remover casos de 0DDOL (equivalente a "sin valor")
+    if (/^0DDOL$/.test(result)) {
+        result = '';
+    }
     return result;
 }
 
@@ -1526,7 +1559,13 @@ function exportarAsistenciasCompaqEYE() {
             headers.push(table.rows[0].cells[j].innerText);
         }
     }
-    data.push(headers.map((header) => header.trim() === 'DT' ? 'DDL' : header));
+    // Ajustar encabezados: DT→DDL, DFT→DDOL para el reporte Compaq EYE
+    data.push(headers.map((header) => {
+        const trimmed = header.trim();
+        if (trimmed === 'DT') return 'DDL';
+        if (trimmed === 'DFT') return 'DDOL';
+        return header;
+    }));
 
     // Filtrar filas por departamentos "EYE"
     for (let i = 1; i < table.rows.length; i++) {
@@ -1569,8 +1608,8 @@ function exportarAsistenciasCompaqEYE() {
                     value = ''; 
                 }
 
-                // Traducir valores especiales (F->FINJ, TE->HE2, quitar ceros)
-                value = translateValue(value);
+                // Traducir valores especiales con la lógica Compaq (incluye DFT→DDOL)
+                value = translateValueCompaq(value);
 
                 rowData.push(value);
             }
@@ -1600,12 +1639,20 @@ function exportarAsistenciasCompaqCHC() {
             headers.push(table.rows[0].cells[j].innerText);
         }
     }
-    data.push(headers.map((header) => header.trim() === 'DT' ? 'DDL' : header));
+    // Convertir encabezados DT→DDL, DFT→DDOL para reporte Compaq CHC
+    data.push(headers.map((header) => {
+        const trimmed = header.trim();
+        if (trimmed === 'DT') return 'DDL';
+        if (trimmed === 'DFT') return 'DDOL';
+        return header;
+    }));
 
-    // Filtrar filas por departamentos que NO empiecen con "EYE"
+    // Filtrar filas CHC: excluir departamentos EYE y ELAB.
+    // Antes esta condición estaba invertida y por eso este reporte CHC
+    // estaba exportando la misma gente de EYE.
     for (let i = 1; i < table.rows.length; i++) {
-        let departamento = table.rows[i].cells[2].innerText; // Columna "Departamento"
-        if (departamento.startsWith('EYE') || departamento.startsWith('ELAB')) {
+        let departamento = table.rows[i].cells[2].innerText.trim(); // Columna "Departamento"
+        if (!departamento.startsWith('EYE') && !departamento.startsWith('ELAB')) {
             let rowData = [];
             for (let j = 0; j < table.rows[i].cells.length - 1; j++) { // Excluir "Acciones"
                 let cell = table.rows[i].cells[j];
@@ -1635,8 +1682,8 @@ function exportarAsistenciasCompaqCHC() {
                     value = ''; 
                 }
 
-                // Traducir el valor (F->FINJ, TE->HE2, eliminar 0FINJ, 0HE2, 0DT, etc.)
-                value = translateValue(value);
+                // Traducir el valor con la lógica específica de Compaq
+                value = translateValueCompaq(value);
 
                 rowData.push(value);
             }
@@ -1664,7 +1711,13 @@ function SoloIncidenciasCompaq() {
             headers.push(table.rows[0].cells[j].innerText.trim());
         }
     }
-    data.push(headers.map((header) => header.trim() === 'DT' ? 'DDL' : header));
+    // Convertir encabezados DT→DDL y DFT→DDOL para el reporte de Solo Incidencias Compaq
+    data.push(headers.map((header) => {
+        const trimmed = header.trim();
+        if (trimmed === 'DT') return 'DDL';
+        if (trimmed === 'DFT') return 'DDOL';
+        return header;
+    }));
 
     // 2. Definir columnas de días y numéricas
     const dayColumns = ["LU", "MA", "MI", "JU", "VI", "SA", "DO"];
@@ -1707,7 +1760,7 @@ function SoloIncidenciasCompaq() {
             }
 
             if (dayColumns.includes(columnKey)) {
-                const translated = translateValue(rawValue);
+                const translated = translateValueCompaq(rawValue);
                 finalValue = (translated === "1") ? null : translated;
             } else if (numericColumns.includes(columnKey)) {
                 /*
@@ -1730,7 +1783,7 @@ function SoloIncidenciasCompaq() {
                     const teNum = parseFloat(rawValue.replace(/TE$/, '')) || 0;
                     finalValue = !isNaN(teNum) && teNum !== 0 ? teNum : null;
                 } else {
-                    const translated = translateValue(rawValue);
+                    const translated = translateValueCompaq(rawValue);
                     const match = translated.match(/\d*\.?\d+/);
                     if (match) {
                         const numVal = parseFloat(match[0]);
@@ -1743,7 +1796,7 @@ function SoloIncidenciasCompaq() {
                 const numVal = parseFloat(rawValue);
                 finalValue = !isNaN(numVal) && numVal !== 0 ? numVal : null;
             } else {
-                finalValue = translateValue(rawValue);
+                finalValue = translateValueCompaq(rawValue);
                 if (finalValue === "") finalValue = null;
             }
 
@@ -2033,34 +2086,40 @@ function SoloIncidenciasEYE() {
 
 
 
-// Función para traducir los valores de "TE" a "HE2", "F" a "FINJ" y "M" a "MINJ"
+// Función para traducir valores de "TE" a "HE2", "F" a "FINJ", "DT" a "DDL" y "M" a "MINJ".
+// Esta versión se utiliza en la parte inferior del archivo y reemplaza una
+// versión anterior para asegurar consistencia. No convierte DFT→DDOL; ese
+// mapeo se maneja únicamente en translateValueCompaq.
 function translateValue(value) {
     let result = String(value == null ? '' : value).trim();
 
+    // Caso especial: 0.5TE se traduce a .3HE2
     if (result === '0.5TE') {
         result = '.3HE2';
     } else {
+        // F → FINJ
         result = result.replace(/\b(\d*(?:\.\d+)?)F\b/g, function(match, p1) {
             const number = p1 || '1';
             return number + 'FINJ';
         });
-
+        // TE → HE2
         result = result.replace(/\b(\d*(?:\.\d+)?)TE\b/g, function(match, p1) {
             const number = p1 || '1';
             return number + 'HE2';
         });
-
+        // DT → DDL
         result = result.replace(/\b(\d*(?:\.\d+)?)DT\b/g, function(match, p1) {
             const number = p1 || '';
             return number + 'DDL';
         });
-
+        // M → MINJ
         result = result.replace(/\b(\d*(?:\.\d+)?)M\b/g, function(match, p1) {
             const number = p1 || '1';
             return number + 'MINJ';
         });
     }
 
+    // Eliminar números 0 de sufijos FINJ/HE2/MINJ (por ejemplo 0HE2)
     const matchTranslated = result.match(/^(\d+(?:\.\d+)?)(FINJ|HE2|MINJ)$/);
     if (matchTranslated) {
         const number = parseFloat(matchTranslated[1]);
@@ -2069,6 +2128,7 @@ function translateValue(value) {
         }
     }
 
+    // Remover casos de 0DDL, 0DFT, 0INC, 0VAC y '0' aislado
     if (/^0(DDL|DFT|INC|VAC)$/.test(result) || result === '0') {
         result = '';
     }
