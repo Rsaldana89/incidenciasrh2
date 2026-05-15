@@ -213,7 +213,7 @@ select.catalog-warning {
                 </div>
 
                 <div class="form-group">
-                    <label for="rfc">*RFC:</label>
+                    <label for="rfc">RFC:</label>
                     <input type="text" id="rfc" name="rfc" maxlength="13">
                 </div>
                 
@@ -234,8 +234,8 @@ select.catalog-warning {
                 </div>
 
                 <div class="form-group">
-                    <label for="puesto">*Puesto:</label>
-                    <select id="puesto" name="puesto" required>
+                    <label for="puesto">Puesto:</label>
+                    <select id="puesto" name="puesto">
                         <option value="">Selecciona un puesto</option>
                     </select>
                     <small id="puesto-help" class="catalog-help">Solo se pueden seleccionar puestos del catálogo.</small>
@@ -1213,8 +1213,8 @@ function sortPersonal(criteria) {
     const selectedPosition = document.getElementById('puesto').value;
     const selectedDepartment = document.getElementById('department_name').value;
 
-    if (!selectedPosition || !ALL_POSITIONS.includes(selectedPosition)) {
-        alert('Debes seleccionar un puesto válido del catálogo.');
+    if (selectedPosition && !ALL_POSITIONS.includes(selectedPosition)) {
+        alert('Si capturas un puesto, debe ser un puesto válido del catálogo.');
         document.getElementById('puesto').focus();
         return;
     }
