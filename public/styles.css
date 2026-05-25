@@ -357,6 +357,16 @@ td:last-child {
 
 
 
+#personal-table tbody tr.row-catalog-discrepancy td {
+    box-shadow: inset 0 -5px 0 rgba(220, 38, 38, 0.20);
+    background-image: linear-gradient(to bottom, transparent 72%, rgba(220, 38, 38, 0.08));
+}
+
+#personal-table tbody tr.row-catalog-discrepancy td:first-child {
+    border-left: 4px solid rgba(220, 38, 38, 0.45);
+}
+
+
 /* Estilos para el recuadro de búsqueda */
 .search-container {
     display: flex;

@@ -48,15 +48,32 @@
                 <button onclick="searchEmployee()">Buscar</button>
 
                 <!-- Combobox para seleccionar departamento -->
-                <select id="department-filter" onchange="searchEmployee()">
+                <select id="department-filter" onchange="applyAdminPersonalCheckFilters()">
                     <option value="">Todos los departamentos</option>
                 </select>
 
                 <!-- Combobox para seleccionar puesto -->
-                <select id="position-filter" onchange="searchEmployee()">
+                <select id="position-filter" onchange="applyAdminPersonalCheckFilters()">
                     <option value="">Todos los puestos</option> <!-- Opción por defecto -->
                 </select>
                 
+            </div>
+
+            <div id="admin-personal-filter-panel" class="admin-personal-filter-panel" style="display: none;">
+                <span class="filter-panel-title">Ver personal:</span>
+                <label class="filter-check-item">
+                    <input type="checkbox" id="filter-active-employees" checked onchange="applyAdminPersonalCheckFilters()">
+                    Dados de alta
+                </label>
+                <label class="filter-check-item">
+                    <input type="checkbox" id="filter-discrepancies" onchange="applyAdminPersonalCheckFilters()">
+                    Con discrepancias de catálogo
+                </label>
+                <label class="filter-check-item">
+                    <input type="checkbox" id="filter-baja-employees" onchange="applyAdminPersonalCheckFilters()">
+                    Dados de baja
+                </label>
+                <span class="filter-panel-hint">Las discrepancias son puestos o departamentos que no existen en el catálogo.</span>
             </div>
             
             <div class="table-container">
@@ -86,6 +103,49 @@ select.catalog-warning {
 }
 #personal-table tbody tr.row-focus td:first-child {
     border-left: 3px solid #7aa35a;
+}
+#personal-table tbody tr.row-catalog-discrepancy td {
+    box-shadow: inset 0 -5px 0 rgba(220, 38, 38, 0.20);
+    background-image: linear-gradient(to bottom, transparent 72%, rgba(220, 38, 38, 0.08));
+}
+#personal-table tbody tr.row-catalog-discrepancy td:first-child {
+    border-left: 4px solid rgba(220, 38, 38, 0.45);
+}
+.admin-personal-filter-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin: 0 auto 18px;
+    padding: 12px 16px;
+    max-width: 980px;
+    border: 1px solid #b9d5c4;
+    border-radius: 10px;
+    background: #f2faf5;
+}
+.filter-panel-title {
+    font-weight: 700;
+    color: #245d43;
+}
+.filter-check-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    color: #2d4d3f;
+    cursor: pointer;
+}
+.filter-check-item input {
+    width: 17px;
+    height: 17px;
+    accent-color: #2f855a;
+}
+.filter-panel-hint {
+    width: 100%;
+    text-align: center;
+    color: #58705f;
+    font-size: 12px;
 }
 </style>
                     
@@ -343,6 +403,33 @@ document.addEventListener('DOMContentLoaded', function () {
         let ALL_DEPARTMENTS = [];
         let ALL_POSITIONS = [];
         let CURRENT_ALLOWED_DEPARTMENTS = [];
+
+        function normalizeCatalogText(value) {
+            return String(value || '').trim().toLowerCase();
+        }
+
+        function isEmployeeBaja(emp) {
+            return normalizeCatalogText(emp && emp.department_name) === 'baja';
+        }
+
+        function hasCatalogDiscrepancy(emp) {
+            const departmentName = (emp && emp.department_name ? String(emp.department_name).trim() : '');
+            const positionName = (emp && emp.puesto ? String(emp.puesto).trim() : '');
+            const validDepartment = departmentName && ALL_DEPARTMENTS.some(dept => normalizeCatalogText(dept) === normalizeCatalogText(departmentName));
+            const validPosition = !positionName || ALL_POSITIONS.some(pos => normalizeCatalogText(pos) === normalizeCatalogText(positionName));
+            return !validDepartment || !validPosition;
+        }
+
+        function updateAdminPersonalFilterVisibility(role = localStorage.getItem('role')) {
+            const panel = document.getElementById('admin-personal-filter-panel');
+            if (!panel) return;
+            panel.style.display = role === 'admin' ? 'flex' : 'none';
+        }
+
+        function refreshVisiblePersonalTable() {
+            if (!document.querySelector('#personal-table tbody')) return;
+            renderPersonalTable(applyCurrentPersonalFilters(personalData));
+        }
 
         function uniqueCatalogValues(values) {
             return [...new Set((values || []).map(value => (value || '').trim()).filter(Boolean))];
@@ -625,6 +712,7 @@ function confirmNewImport() {
             ALL_POSITIONS = positions;
             populatePositionFilter();
             populatePositionModalSelect();
+            refreshVisiblePersonalTable();
         })
         .catch(error => console.error('Error al cargar los puestos:', error));
 }
@@ -723,6 +811,7 @@ function loadDepartments() {
             ALL_DEPARTMENTS = depts;
             populateDepartmentFilter();
             populateDepartmentModalSelect();
+            refreshVisiblePersonalTable();
         })
         .catch(error => console.error('Error:', error));
 }
@@ -860,6 +949,10 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('full-name').textContent = data.full_name;
             document.getElementById('user-role').textContent = data.role;
             toggleSystemAdminLink(data.role);
+            localStorage.setItem('role', data.role);
+            updateAdminPersonalFilterVisibility(data.role);
+            localStorage.setItem('role', data.role);
+            updateAdminPersonalFilterVisibility(data.role);
 
             if (data.username === 'managerchc') {
                 document.getElementById('respaldo').style.display = 'block';
@@ -933,6 +1026,10 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('full-name').textContent = data.full_name;
             document.getElementById('user-role').textContent = data.role;
             toggleSystemAdminLink(data.role);
+            localStorage.setItem('role', data.role);
+            updateAdminPersonalFilterVisibility(data.role);
+            localStorage.setItem('role', data.role);
+            updateAdminPersonalFilterVisibility(data.role);
 
             if (data.username === 'managerchc') {
                 document.getElementById('respaldo').style.display = 'block';
@@ -1005,9 +1102,10 @@ function showPersonalManagement(allowedDepartments = CURRENT_ALLOWED_DEPARTMENTS
             return a.employee_number - b.employee_number; // Ordenar por ID
         });
 
-        // Renderizar la tabla con los datos ordenados
-        renderPersonalTable(personalData);
+        // Renderizar la tabla respetando los filtros activos
+        renderPersonalTable(applyCurrentPersonalFilters(personalData));
         document.getElementById('personal-management-module').style.display = 'block';
+        updateAdminPersonalFilterVisibility();
     })
     .catch(error => {
         console.error('Error al cargar los datos del personal:', error);
@@ -1018,11 +1116,38 @@ function showPersonalManagement(allowedDepartments = CURRENT_ALLOWED_DEPARTMENTS
 
 
 
+
+        function applyAdminPersonalCheckFilters() {
+            const activeCheckbox = document.getElementById('filter-active-employees');
+            const discrepancyCheckbox = document.getElementById('filter-discrepancies');
+            const bajaCheckbox = document.getElementById('filter-baja-employees');
+
+            if (activeCheckbox && discrepancyCheckbox && bajaCheckbox &&
+                !activeCheckbox.checked && !discrepancyCheckbox.checked && !bajaCheckbox.checked) {
+                activeCheckbox.checked = true;
+            }
+
+            searchEmployee();
+        }
+
 function applyCurrentPersonalFilters(dataSet = personalData) {
     const searchQuery = document.getElementById('search-input').value.trim().toLowerCase();
     const selectedDepartment = document.getElementById('department-filter').value;
     const selectedPosition = document.getElementById('position-filter').value;
-    const normalizeEmployeeNumber = (number) => String(number).padStart(5, '0');
+    const normalizeEmployeeNumber = (number) => String(number || '').padStart(5, '0');
+
+    const activeCheckbox = document.getElementById('filter-active-employees');
+    const discrepancyCheckbox = document.getElementById('filter-discrepancies');
+    const bajaCheckbox = document.getElementById('filter-baja-employees');
+
+    let showActive = activeCheckbox ? activeCheckbox.checked : true;
+    let showDiscrepancies = discrepancyCheckbox ? discrepancyCheckbox.checked : false;
+    let showBajas = bajaCheckbox ? bajaCheckbox.checked : false;
+
+    // Si el admin deja los tres checks desmarcados, conservamos la vista segura por defecto: solo altas.
+    if (!showActive && !showDiscrepancies && !showBajas) {
+        showActive = true;
+    }
 
     const filteredData = dataSet.filter(emp => {
         const employeeNumberNormalized = normalizeEmployeeNumber(emp.employee_number);
@@ -1033,15 +1158,22 @@ function applyCurrentPersonalFilters(dataSet = personalData) {
         const matchesDepartment = selectedDepartment === '' || emp.department_name === selectedDepartment;
         const matchesPosition = selectedPosition === '' || emp.puesto === selectedPosition;
 
-        return matchesSearchQuery && matchesDepartment && matchesPosition;
+        const isBaja = isEmployeeBaja(emp);
+        const hasDiscrepancy = hasCatalogDiscrepancy(emp);
+        const matchesStatusFilter =
+            (showActive && !isBaja) ||
+            (showDiscrepancies && hasDiscrepancy) ||
+            (showBajas && isBaja);
+
+        return matchesSearchQuery && matchesDepartment && matchesPosition && matchesStatusFilter;
     });
 
     const currentSortCriteria = localStorage.getItem('currentSortCriteria') || 'employee_number';
     const currentSortOrder = localStorage.getItem('currentSortOrder') || 'asc';
 
     filteredData.sort((a, b) => {
-        if (a.department_name === 'Baja' && b.department_name !== 'Baja') return 1;
-        if (a.department_name !== 'Baja' && b.department_name === 'Baja') return -1;
+        if (isEmployeeBaja(a) && !isEmployeeBaja(b)) return 1;
+        if (!isEmployeeBaja(a) && isEmployeeBaja(b)) return -1;
 
         const valueA = a[currentSortCriteria] || '';
         const valueB = b[currentSortCriteria] || '';
@@ -1126,16 +1258,20 @@ function buildPersonalRowHtml(emp) {
     const fechaNacimiento = birthDateParsed ? formatDate(birthDateParsed) : 'N/D';
     const edad = birthDateParsed ? calcularEdadDesdeFechaNacimiento(birthDateParsed) : 'N/D';
     const antiguedad = calcularAntiguedad(emp.start_date, emp.fecha_reingreso);
-    const isValidDepartment = ALL_DEPARTMENTS.includes(emp.department_name);
-    const isValidPosition = !emp.puesto || ALL_POSITIONS.includes(emp.puesto);
-    const isBaja = emp.department_name.toLowerCase() === 'baja';
+    const departmentName = (emp.department_name || '').trim();
+    const positionName = (emp.puesto || '').trim();
+    const isValidDepartment = departmentName && ALL_DEPARTMENTS.some(dept => normalizeCatalogText(dept) === normalizeCatalogText(departmentName));
+    const isValidPosition = !positionName || ALL_POSITIONS.some(pos => normalizeCatalogText(pos) === normalizeCatalogText(positionName));
+    const hasDiscrepancy = !isValidDepartment || !isValidPosition;
+    const discrepancyRowClass = hasDiscrepancy ? 'row-catalog-discrepancy' : '';
+    const isBaja = isEmployeeBaja(emp);
 
     // Para usuarios que no son administradores, ocultar RFC y CURP
     const displayRfc = role === 'admin' ? (emp.rfc || '') : '';
     const displayCurp = role === 'admin' ? (emp.curp || '') : '';
 
     let row = `
-            <tr data-employee-number="${emp.employee_number}">
+            <tr data-employee-number="${emp.employee_number}" class="${discrepancyRowClass}">
                 <td>${emp.employee_number.toString().padStart(5, '0')}</td>
                 <td>${emp.full_name}</td>
                 <td>${displayRfc}</td>
@@ -1189,7 +1325,7 @@ function sortPersonal(criteria) {
         return 0;
     });
 
-    renderPersonalTable(personalData);
+    renderPersonalTable(applyCurrentPersonalFilters(personalData));
 }
 
 
@@ -1462,6 +1598,10 @@ function updateEmployeeToBaja(employee_number, fecha_baja) {
                 document.getElementById('full-name').textContent = data.full_name;
                 document.getElementById('user-role').textContent = data.role;
             toggleSystemAdminLink(data.role);
+            localStorage.setItem('role', data.role);
+            updateAdminPersonalFilterVisibility(data.role);
+            localStorage.setItem('role', data.role);
+            updateAdminPersonalFilterVisibility(data.role);
 
                 localStorage.setItem('role', data.role);
                 
