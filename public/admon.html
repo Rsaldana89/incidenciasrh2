@@ -503,9 +503,9 @@ function renderOmitidosTable(omitidos) {
     return renderImportPreviewTable('5. Omitidos / bajas no aplicables', rows, [
         { label: 'Fila', get: item => item.row || '' },
         { label: 'Motivo', get: item => item.reason || '' },
-        { label: 'ID', get: item => item.data ? formatEmployeeNumber(item.data.employee_number || item.data.codigoempleado || item.data.codigoEmpleado || item.data.codigo) : '' },
-        { label: 'Nombre', get: item => item.data ? (item.data.full_name || item.data.nombrelargo || item.data.nombreLargo || item.data['nombre largo'] || '') : '' },
-        { label: 'Departamento plantilla', get: item => item.data ? (item.data.department_name || item.data.descripcion || '') : '' },
+        { label: 'ID', get: item => item.data ? formatEmployeeNumber(item.data.employee_number || item.data.codigoempleado) : '' },
+        { label: 'Nombre', get: item => item.data ? (item.data.full_name || item.data.nombrelargo || '') : '' },
+        { label: 'Departamento plantilla', get: item => item.data ? (item.data.department_name || item.data['descripcion departamento'] || '') : '' },
         { label: 'Fecha baja', get: item => item.data ? (item.data.fecha_baja || '') : '' }
     ], '#b7791f');
 }
@@ -515,9 +515,9 @@ function renderWarningsTable(warnings) {
     return renderImportPreviewTable('Advertencias', rows, [
         { label: 'Fila', get: item => item.row || '' },
         { label: 'Motivo', get: item => item.reason || '' },
-        { label: 'ID', get: item => item.data ? formatEmployeeNumber(item.data.employee_number || item.data.codigoempleado || item.data.codigoEmpleado || item.data.codigo) : '' },
-        { label: 'Nombre', get: item => item.data ? (item.data.full_name || item.data.nombrelargo || item.data.nombreLargo || item.data['nombre largo'] || '') : '' },
-        { label: 'Departamento', get: item => item.data ? (item.data.department_name || item.data.descripcion || '') : '' }
+        { label: 'ID', get: item => item.data ? formatEmployeeNumber(item.data.employee_number || item.data.codigoempleado) : '' },
+        { label: 'Nombre', get: item => item.data ? (item.data.full_name || item.data.nombrelargo || '') : '' },
+        { label: 'Departamento', get: item => item.data ? (item.data.department_name || item.data['descripcion departamento'] || '') : '' }
     ], '#c05621');
 }
 
@@ -546,7 +546,16 @@ function renderNewImportPreview(data) {
             <span style="padding: 6px 10px; border-radius: 999px; background: #f0f2f1; color: #4d5a52; font-weight: 700;">Sin cambios: ${unchanged.length}</span>
             <span style="padding: 6px 10px; border-radius: 999px; background: #fff4df; color: #7a4b00; font-weight: 700;">Omitidos / bajas no aplicables: ${omitidos.length}</span>
             <span style="padding: 6px 10px; border-radius: 999px; background: #fff4df; color: #7a4b00; font-weight: 700;">Advertencias: ${warnings.length}</span>
-        </div>
+        </div>`;
+
+    if (data.import_blocked) {
+        html += `
+            <div style="margin: 0 0 14px; padding: 12px; border-radius: 6px; color: #8a2a2a; background: #fde8e8; border: 1px solid #f5b5b5; font-weight: 700;">
+                ${escapeHtml(data.blocking_message || 'No se puede importar porque no aparecen todos los datos necesarios en las altas. Verifique el nombre de las columnas de la plantilla.')}
+            </div>`;
+    }
+
+    html += `
         <p style="margin: 0 0 14px; color: #4d5c4f; font-size: 13px;">
             Las altas nuevas se muestran primero para facilitar la revisión antes de confirmar la importación.
         </p>`;
@@ -614,8 +623,17 @@ function previewNewImport() {
         .then(data => {
             previewContent.innerHTML = renderNewImportPreview(data);
             previewContainer.style.display = 'block';
-            // Mostrar botón de confirmar si hay altas, bajas o reingresos
-            if ((data.altas && data.altas.length) || (data.bajas && data.bajas.length) || (data.reingresos && data.reingresos.length)) {
+            // Mostrar botón de confirmar solo si no hay errores bloqueantes
+            if (data.import_blocked) {
+                confirmBtn.style.display = 'none';
+                notification.style.display = 'block';
+                notification.textContent = data.blocking_message || 'No se puede importar porque faltan datos obligatorios en las altas.';
+                notification.style.padding = '12px';
+                notification.style.borderRadius = '6px';
+                notification.style.color = '#8a2a2a';
+                notification.style.backgroundColor = '#fde8e8';
+                notification.style.border = '1px solid #f5b5b5';
+            } else if ((data.altas && data.altas.length) || (data.bajas && data.bajas.length) || (data.reingresos && data.reingresos.length)) {
                 confirmBtn.style.display = 'inline-block';
             } else {
                 confirmBtn.style.display = 'none';

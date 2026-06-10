@@ -51,6 +51,27 @@ function normalizeImportText(value) {
     return String(value ?? '').trim().toUpperCase();
 }
 
+
+function hasAnyImportData(row) {
+    return Object.values(row || {}).some(value => String(value ?? '').trim() !== '');
+}
+
+function getMissingAltaFields(preview) {
+    const missing = [];
+    if (!preview.employee_number) missing.push('ID del empleado');
+    if (!preview.full_name) missing.push('nombre');
+    if (!preview.department_name) missing.push('departamento');
+    if (!preview.puesto) missing.push('puesto');
+    if (!preview.start_date) missing.push('fecha de ingreso');
+    return missing;
+}
+
+function addBlockingImportError(result, rowNumber, reason, data) {
+    const item = { row: rowNumber, reason, data };
+    result.warnings.push(item);
+    result.blocking_errors.push(item);
+}
+
 /**
  * Convierte fechas de Excel/plantilla a formato MySQL YYYY-MM-DD.
  * Soporta números seriales de Excel (por ejemplo 43165), objetos Date y textos comunes.
@@ -123,11 +144,10 @@ function parseExcel(buffer) {
         const sheet = workbook.Sheets[sheetName];
         const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
         const hasEmployeeCodes = rows.some(row => normalizeEmployeeNumber(getImportValue(row, [
-            'codigoempleado', 'codigo empleado', 'Código empleado', 'codigo',
-            'id', 'employee_number', 'numero empleado', 'número empleado'
+            'codigoempleado'
         ])));
         const hasEmployeeStatus = rows.some(row => String(getImportValue(row, [
-            'estadoempleado', 'estado empleado', 'estado'
+            'estadoempleado'
         ]) || '').trim() !== '');
         return { sheetName, rows, hasEmployeeCodes, hasEmployeeStatus };
     });
@@ -177,27 +197,37 @@ async function classifyImportRows(rows) {
         // Omitidos / bajas no aplicables: casos informativos que no deben tratarse como error.
         // Ejemplo: empleado marcado como baja en la plantilla, pero no existe en el sistema.
         omitidos: [],
-        warnings: []
+        warnings: [],
+        blocking_errors: [],
+        import_blocked: false,
+        blocking_message: null
     };
     const seen = new Set();
     rows.forEach((row, index) => {
-        // Mapear columnas según especificación. Se toleran mayúsculas, espacios,
-        // acentos y variantes comunes de encabezados de Excel.
+        if (!hasAnyImportData(row)) {
+            return;
+        }
+
+        const rowNumber = index + 2; // considerando encabezado en la primera fila
+        // Mapear columnas según la plantilla oficial.
+        // getImportValue normaliza mayúsculas, espacios y acentos, pero no busca aliases alternos.
         const codigo = normalizeEmployeeNumber(getImportValue(row, [
-            'codigoempleado', 'codigo empleado', 'Código empleado', 'codigo',
-            'id', 'employee_number', 'numero empleado', 'número empleado'
+            'codigoempleado'
         ]));
         if (!codigo) {
-            result.warnings.push({
-                row: index + 2, // considerando encabezado en la primera fila
-                reason: 'Código de empleado no válido',
-                data: row
-            });
+            const estadoSinCodigo = normalizeImportText(getImportValue(row, ['estadoempleado']));
+            const pareceBajaSinCodigo = estadoSinCodigo === 'B' || estadoSinCodigo === 'BAJA';
+            const reason = 'No aparecen todos los datos necesarios para las altas. Falta: ID del empleado. Verifique el nombre de las columnas de la plantilla.';
+            if (!pareceBajaSinCodigo) {
+                addBlockingImportError(result, rowNumber, reason, row);
+            } else {
+                result.warnings.push({ row: rowNumber, reason: 'Código de empleado no válido', data: row });
+            }
             return;
         }
         if (seen.has(codigo)) {
             result.warnings.push({
-                row: index + 2,
+                row: rowNumber,
                 reason: 'Empleado duplicado en la plantilla',
                 data: row
             });
@@ -208,16 +238,16 @@ async function classifyImportRows(rows) {
         // Normalización igual que la importación legacy:
         // nombres, departamentos y puestos se guardan en MAYÚSCULAS.
         // El correo se guarda en minúsculas.
-        const full_name = normalizeImportText(getImportValue(row, ['nombrelargo', 'nombre largo', 'nombre', 'full_name']));
-        const department_name = normalizeImportText(getImportValue(row, ['descripcion', 'departamento', 'department_name', 'area', 'área']));
-        const puesto = normalizeImportText(getImportValue(row, ['descripcion1', 'puesto', 'cargo']));
-        const start_date = normalizeDateForMySQL(getImportValue(row, ['fechaalta', 'fecha alta', 'start_date']));
-        const fecha_baja = normalizeDateForMySQL(getImportValue(row, ['fechabaja', 'fecha baja']));
-        const fecha_reingreso = normalizeDateForMySQL(getImportValue(row, ['fechareingreso', 'fecha reingreso']));
-        const nss = String(getImportValue(row, ['numerosegurosocial', 'numero seguro social', 'nss'])).trim();
-        const email = String(getImportValue(row, ['CorreoElectronico', 'correo electronico', 'correo electrónico', 'email'])).trim().toLowerCase() || null;
-        const birth_date = normalizeDateForMySQL(getImportValue(row, ['fechanacimiento', 'fecha nacimiento', 'birth_date']));
-        const estado = normalizeImportText(getImportValue(row, ['estadoempleado', 'estado empleado', 'estado']));
+        const full_name = normalizeImportText(getImportValue(row, ['nombrelargo']));
+        const department_name = normalizeImportText(getImportValue(row, ['descripcion departamento']));
+        const puesto = normalizeImportText(getImportValue(row, ['descripcion puesto']));
+        const start_date = normalizeDateForMySQL(getImportValue(row, ['fechaalta']));
+        const fecha_baja = normalizeDateForMySQL(getImportValue(row, ['fechabaja']));
+        const fecha_reingreso = normalizeDateForMySQL(getImportValue(row, ['fechareingreso']));
+        const nss = String(getImportValue(row, ['numerosegurosocial'])).trim();
+        const email = String(getImportValue(row, ['CorreoElectronico'])).trim().toLowerCase() || null;
+        const birth_date = null;
+        const estado = normalizeImportText(getImportValue(row, ['estadoempleado']));
         // Las bajas y reingresos se deciden con el estado de la plantilla.
         // Esto conserva la lógica original: B/BAJA baja empleados activos;
         // A/R/ACTIVO/ALTA/REINGRESO reactiva empleados que ya están en Baja.
@@ -250,11 +280,21 @@ async function classifyImportRows(rows) {
                 // Si viene como baja pero no existe en el sistema, no es una advertencia crítica:
                 // solo se omite porque no hay empleado activo al cual aplicar la baja.
                 result.omitidos.push({
-                    row: index + 2,
+                    row: rowNumber,
                     reason: 'Baja no aplicable: empleado no existe en el sistema',
                     data: preview
                 });
             } else {
+                const missingAltaFields = getMissingAltaFields(preview);
+                if (missingAltaFields.length > 0) {
+                    addBlockingImportError(
+                        result,
+                        rowNumber,
+                        `No aparecen todos los datos necesarios para las altas. Falta: ${missingAltaFields.join(', ')}. Verifique el nombre de las columnas de la plantilla.`,
+                        preview
+                    );
+                    return;
+                }
                 result.altas.push(preview);
             }
         } else {
@@ -284,6 +324,11 @@ async function classifyImportRows(rows) {
             }
         }
     });
+
+    if (result.blocking_errors.length > 0) {
+        result.import_blocked = true;
+        result.blocking_message = 'No se puede importar porque no aparecen todos los datos necesarios en las altas. Verifique el nombre de las columnas de la plantilla.';
+    }
 
     return result;
 }
@@ -1537,6 +1582,13 @@ app.post('/admin/personal/import-confirm', authenticateToken, requireAdminCurren
             return res.status(400).json({ error: 'El archivo está vacío o no se pudo leer.' });
         }
         const classification = await classifyImportRows(rows);
+        if (classification.import_blocked) {
+            return res.status(400).json({
+                error: classification.blocking_message || 'No se puede importar porque faltan datos obligatorios en las altas.',
+                warnings: classification.warnings,
+                blocking_errors: classification.blocking_errors
+            });
+        }
         // Iniciar transacción
         db.getConnection(async (connErr, connection) => {
             if (connErr) {
