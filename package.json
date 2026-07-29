@@ -1,7 +1,7 @@
 {
   "name": "incidencias",
-  "version": "2.3.0",
-  "description": "CHC Incidencias 1.8 - Modulo de Vacaciones RH",
+  "version": "2.5.3",
+  "description": "CHC Incidencias 2.5.3 - Prioridad de fecha de nacimiento guardada con respaldo por RFC",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

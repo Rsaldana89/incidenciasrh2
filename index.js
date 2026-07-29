@@ -182,17 +182,23 @@ function parseExcel(buffer) {
  * @returns {Promise<object>} clasificación
  */
 async function classifyImportRows(rows) {
-    // Obtener todos los IDs existentes de la tabla personal y su departamento actual
-    const existing = await dbQuery('SELECT employee_number, department_name FROM personal');
+    // Obtener los empleados existentes con su departamento y fecha de nacimiento.
+    // La fecha se consulta para detectar actualizaciones puntuales sin modificar
+    // puesto, departamento ni ningún otro dato del empleado.
+    const existing = await dbQuery('SELECT employee_number, department_name, birth_date FROM personal');
     const existingMap = new Map();
     existing.forEach(row => {
-        existingMap.set(Number(row.employee_number), normalizeImportText(row.department_name));
+        existingMap.set(Number(row.employee_number), {
+            department_name: normalizeImportText(row.department_name),
+            birth_date: normalizeDateForMySQL(row.birth_date)
+        });
     });
 
     const result = {
         altas: [],
         bajas: [],
         reingresos: [],
+        birth_date_updates: [],
         unchanged: [],
         // Omitidos / bajas no aplicables: casos informativos que no deben tratarse como error.
         // Ejemplo: empleado marcado como baja en la plantilla, pero no existe en el sistema.
@@ -210,7 +216,7 @@ async function classifyImportRows(rows) {
 
         const rowNumber = index + 2; // considerando encabezado en la primera fila
         // Mapear columnas según la plantilla oficial.
-        // getImportValue normaliza mayúsculas, espacios y acentos, pero no busca aliases alternos.
+        // getImportValue normaliza mayúsculas, espacios y acentos y permite aliases definidos por campo.
         const codigo = normalizeEmployeeNumber(getImportValue(row, [
             'codigoempleado'
         ]));
@@ -246,7 +252,13 @@ async function classifyImportRows(rows) {
         const fecha_reingreso = normalizeDateForMySQL(getImportValue(row, ['fechareingreso']));
         const nss = String(getImportValue(row, ['numerosegurosocial'])).trim();
         const email = String(getImportValue(row, ['CorreoElectronico'])).trim().toLowerCase() || null;
-        const birth_date = null;
+        const rawBirthDate = getImportValue(row, [
+            'fechanacimiento',
+            'fecha nacimiento',
+            'birth_date',
+            'birthdate'
+        ]);
+        const birth_date = normalizeDateForMySQL(rawBirthDate);
         const estado = normalizeImportText(getImportValue(row, ['estadoempleado']));
         // Las bajas y reingresos se deciden con el estado de la plantilla.
         // Esto conserva la lógica original: B/BAJA baja empleados activos;
@@ -256,9 +268,12 @@ async function classifyImportRows(rows) {
         const incomingIsBaja = estado === 'B' || estado === 'BAJA' || department_name === 'BAJA';
         const incomingIsActiveOrReingreso = estado === 'A' || estado === 'ACTIVO' || estado === 'ALTA' || estado === 'R' || estado === 'REINGRESO';
 
-        const exists = existingMap.has(codigo);
-        const currentDepartment = existingMap.get(codigo) || '';
+        const existingRecord = existingMap.get(codigo) || null;
+        const exists = Boolean(existingRecord);
+        const currentDepartment = existingRecord ? existingRecord.department_name : '';
+        const currentBirthDate = existingRecord ? existingRecord.birth_date : null;
         const wasBaja = currentDepartment === 'BAJA';
+        const birthDateChanged = Boolean(exists && birth_date && birth_date !== currentBirthDate);
 
         // Construir objeto básico para vista previa
         const preview = {
@@ -273,6 +288,26 @@ async function classifyImportRows(rows) {
             nss: nss || null,
             email,
         };
+
+        // Si la plantilla contiene un valor no vacío que no se pudo interpretar
+        // como fecha, se omite únicamente ese dato y se conserva el resto del flujo.
+        if (String(rawBirthDate ?? '').trim() !== '' && !birth_date) {
+            result.warnings.push({
+                row: rowNumber,
+                reason: 'Fecha de nacimiento no válida; el campo no será actualizado',
+                data: Object.assign({}, preview, { raw_birth_date: rawBirthDate })
+            });
+        }
+
+        // Para cualquier empleado ya existente, la fecha de nacimiento se maneja
+        // como una actualización independiente. Esto garantiza que no se alteren
+        // su departamento, puesto, NSS, correo ni demás datos por el solo hecho de
+        // aparecer nuevamente en la plantilla.
+        if (birthDateChanged) {
+            result.birth_date_updates.push(Object.assign({}, preview, {
+                previous_birth_date: currentBirthDate
+            }));
+        }
 
         if (!exists) {
             // Alta nueva
@@ -302,10 +337,14 @@ async function classifyImportRows(rows) {
             if (incomingIsBaja) {
                 if (wasBaja) {
                     // Ya está dado de baja en el sistema; no se vuelve a bajar.
-                    result.unchanged.push(Object.assign({}, preview, {
-                        department_name: 'BAJA',
-                        nota: 'Empleado ya estaba en Baja'
-                    }));
+                    // Si cambió la fecha de nacimiento, aparecerá únicamente en
+                    // la sección de actualización de ese campo.
+                    if (!birthDateChanged) {
+                        result.unchanged.push(Object.assign({}, preview, {
+                            department_name: 'BAJA',
+                            nota: 'Empleado ya estaba en Baja'
+                        }));
+                    }
                 } else {
                     // Baja de empleado activo existente
                     result.bajas.push(Object.assign({}, preview));
@@ -319,8 +358,11 @@ async function classifyImportRows(rows) {
                     fecha_reingreso: preview.fecha_reingreso || getTodayForMySQL()
                 }));
             } else {
-                // Sin cambios obligatorios
-                result.unchanged.push(Object.assign({}, preview));
+                // Sin cambios operativos. Si la única diferencia es la fecha de
+                // nacimiento, se clasifica en birth_date_updates y no como sin cambios.
+                if (!birthDateChanged) {
+                    result.unchanged.push(Object.assign({}, preview));
+                }
             }
         }
     });
@@ -1628,6 +1670,18 @@ app.post('/admin/personal/import-confirm', authenticateToken, requireAdminCurren
                             });
                         });
                     }
+                    // ACTUALIZACIONES DE FECHA DE NACIMIENTO
+                    // Este bloque modifica exclusivamente birth_date para empleados
+                    // que ya existen y cuya fecha válida es diferente a la almacenada.
+                    for (const emp of classification.birth_date_updates) {
+                        await new Promise((resolve, reject) => {
+                            const updateBirthDateQuery = `UPDATE personal SET birth_date = ? WHERE employee_number = ?`;
+                            connection.query(updateBirthDateQuery, [emp.birth_date, emp.employee_number], (err) => {
+                                if (err) return reject(err);
+                                resolve();
+                            });
+                        });
+                    }
                     // BAJAS
                     for (const emp of classification.bajas) {
                         // Solo aplicar baja si se proporciona una fecha de baja
@@ -1649,12 +1703,11 @@ app.post('/admin/personal/import-confirm', authenticateToken, requireAdminCurren
                             // Determinar fecha de reingreso: usar la fecha de la plantilla si viene;
                             // si no, usar la fecha actual del día en que se confirma el reingreso.
                             const fechaReing = emp.fecha_reingreso || getTodayForMySQL();
-                            const updateQuery = `UPDATE personal SET department_name = ?, fecha_reingreso = ?, fecha_baja = NULL, puesto = IF(? IS NOT NULL AND ? <> '', ?, puesto), nss = IF(? IS NOT NULL AND ? <> '', ?, nss), email = IF(? IS NOT NULL AND ? <> '', ?, email), birth_date = IF(? IS NOT NULL AND ? <> '', ?, birth_date) WHERE employee_number = ?`;
+                            const updateQuery = `UPDATE personal SET department_name = ?, fecha_reingreso = ?, fecha_baja = NULL, puesto = IF(? IS NOT NULL AND ? <> '', ?, puesto), nss = IF(? IS NOT NULL AND ? <> '', ?, nss), email = IF(? IS NOT NULL AND ? <> '', ?, email) WHERE employee_number = ?`;
                             const params = [emp.department_name || null, fechaReing,
                                 emp.puesto, emp.puesto, emp.puesto,
                                 emp.nss, emp.nss, emp.nss,
                                 emp.email, emp.email, emp.email,
-                                emp.birth_date, emp.birth_date, emp.birth_date,
                                 emp.employee_number
                             ];
                             connection.query(updateQuery, params, (err) => {
@@ -1700,6 +1753,7 @@ app.post('/admin/personal/import-confirm', authenticateToken, requireAdminCurren
                             altas: classification.altas.length,
                             bajas: classification.bajas.length,
                             reingresos: classification.reingresos.length,
+                            actualizaciones_fecha_nacimiento: classification.birth_date_updates.length,
                             omitidos: classification.omitidos ? classification.omitidos.length : 0,
                             warnings: classification.warnings.length
                         });
@@ -1710,6 +1764,7 @@ app.post('/admin/personal/import-confirm', authenticateToken, requireAdminCurren
                                 altas: classification.altas.length,
                                 bajas: classification.bajas.length,
                                 reingresos: classification.reingresos.length,
+                                actualizaciones_fecha_nacimiento: classification.birth_date_updates.length,
                                 omitidos: classification.omitidos ? classification.omitidos.length : 0,
                                 warnings: classification.warnings
                             }

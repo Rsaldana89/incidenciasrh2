@@ -233,7 +233,7 @@ select.catalog-warning {
 <div id="new-import-container" style="margin-top: 34px; padding-top: 24px; border-top: 1px solid #d9e3d2;">
     <h3>Nueva importación de personal</h3>
     <p style="margin: 8px 0 14px; color: #4d5c4f; font-size: 15px;">
-        Sube un archivo <strong>.xlsx</strong> o <strong>.xls</strong> con la nueva plantilla de personal. El sistema clasificará las filas en altas nuevas, bajas, reingresos y advertencias. Primero podrás previsualizar los cambios antes de confirmarlos.
+        Sube un archivo <strong>.xlsx</strong> o <strong>.xls</strong> con la nueva plantilla de personal. El sistema clasificará las filas en altas nuevas, bajas, reingresos, actualizaciones de fecha de nacimiento y advertencias. Para empleados ya existentes, una fecha de nacimiento diferente actualizará únicamente ese campo, sin modificar departamento, puesto ni otros datos. Primero podrás previsualizar los cambios antes de confirmarlos.
     </p>
     <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
         <input type="file" id="new-import-file" accept=".xlsx,.xls" />
@@ -500,7 +500,7 @@ function renderImportPreviewTable(title, rows, columns, accentColor) {
 
 function renderOmitidosTable(omitidos) {
     const rows = Array.isArray(omitidos) ? omitidos : [];
-    return renderImportPreviewTable('5. Omitidos / bajas no aplicables', rows, [
+    return renderImportPreviewTable('6. Omitidos / bajas no aplicables', rows, [
         { label: 'Fila', get: item => item.row || '' },
         { label: 'Motivo', get: item => item.reason || '' },
         { label: 'ID', get: item => item.data ? formatEmployeeNumber(item.data.employee_number || item.data.codigoempleado) : '' },
@@ -517,7 +517,8 @@ function renderWarningsTable(warnings) {
         { label: 'Motivo', get: item => item.reason || '' },
         { label: 'ID', get: item => item.data ? formatEmployeeNumber(item.data.employee_number || item.data.codigoempleado) : '' },
         { label: 'Nombre', get: item => item.data ? (item.data.full_name || item.data.nombrelargo || '') : '' },
-        { label: 'Departamento', get: item => item.data ? (item.data.department_name || item.data['descripcion departamento'] || '') : '' }
+        { label: 'Departamento', get: item => item.data ? (item.data.department_name || item.data['descripcion departamento'] || '') : '' },
+        { label: 'Fecha nacimiento recibida', get: item => item.data ? (item.data.raw_birth_date || '') : '' }
     ], '#c05621');
 }
 
@@ -525,6 +526,7 @@ function renderNewImportPreview(data) {
     const altas = data.altas || [];
     const bajas = data.bajas || [];
     const reingresos = data.reingresos || [];
+    const birthDateUpdates = data.birth_date_updates || [];
     const unchanged = data.unchanged || [];
     const omitidos = data.omitidos || [];
     const warnings = data.warnings || [];
@@ -543,6 +545,7 @@ function renderNewImportPreview(data) {
             <span style="padding: 6px 10px; border-radius: 999px; background: #dff3e5; color: #255c3b; font-weight: 700;">Altas nuevas: ${altas.length}</span>
             <span style="padding: 6px 10px; border-radius: 999px; background: #fde8e8; color: #8a2a2a; font-weight: 700;">Bajas: ${bajas.length}</span>
             <span style="padding: 6px 10px; border-radius: 999px; background: #e6f0ff; color: #274472; font-weight: 700;">Reingresos: ${reingresos.length}</span>
+            <span style="padding: 6px 10px; border-radius: 999px; background: #efe6ff; color: #553c7b; font-weight: 700;">Fechas de nacimiento: ${birthDateUpdates.length}</span>
             <span style="padding: 6px 10px; border-radius: 999px; background: #f0f2f1; color: #4d5a52; font-weight: 700;">Sin cambios: ${unchanged.length}</span>
             <span style="padding: 6px 10px; border-radius: 999px; background: #fff4df; color: #7a4b00; font-weight: 700;">Omitidos / bajas no aplicables: ${omitidos.length}</span>
             <span style="padding: 6px 10px; border-radius: 999px; background: #fff4df; color: #7a4b00; font-weight: 700;">Advertencias: ${warnings.length}</span>
@@ -557,7 +560,7 @@ function renderNewImportPreview(data) {
 
     html += `
         <p style="margin: 0 0 14px; color: #4d5c4f; font-size: 13px;">
-            Las altas nuevas se muestran primero para facilitar la revisión antes de confirmar la importación.
+            Las altas nuevas se muestran primero. La sección de fechas de nacimiento contiene empleados que ya existen y para los cuales se actualizará exclusivamente la <strong>fecha de nacimiento</strong>; sus demás datos permanecerán sin cambios.
         </p>`;
 
     // Orden fijo solicitado: altas nuevas primero.
@@ -567,7 +570,16 @@ function renderNewImportPreview(data) {
         { label: 'Fecha nacimiento', key: 'birth_date' }
     ], '#2f855a');
 
-    html += renderImportPreviewTable('2. Empleados a dar de baja', bajas, [
+    html += renderImportPreviewTable('2. Fechas de nacimiento a actualizar', birthDateUpdates, [
+        { label: 'ID', get: emp => formatEmployeeNumber(emp.employee_number) },
+        { label: 'Nombre', key: 'full_name' },
+        { label: 'Fecha guardada', key: 'previous_birth_date' },
+        { label: 'Fecha de plantilla', key: 'birth_date' },
+        { label: 'Departamento (sin cambios)', key: 'department_name' },
+        { label: 'Puesto (sin cambios)', key: 'puesto' }
+    ], '#805ad5');
+
+    html += renderImportPreviewTable('3. Empleados a dar de baja', bajas, [
         { label: 'ID', get: emp => formatEmployeeNumber(emp.employee_number) },
         { label: 'Nombre', key: 'full_name' },
         { label: 'Departamento actual / plantilla', key: 'department_name' },
@@ -575,13 +587,14 @@ function renderNewImportPreview(data) {
         { label: 'Fecha baja', key: 'fecha_baja' }
     ], '#c53030');
 
-    html += renderImportPreviewTable('3. Empleados a reingresar', reingresos, [
+    html += renderImportPreviewTable('4. Empleados a reingresar', reingresos, [
         ...commonColumns,
         { label: 'Fecha reingreso', key: 'fecha_reingreso' },
-        { label: 'Fecha alta original / plantilla', key: 'start_date' }
+        { label: 'Fecha alta original / plantilla', key: 'start_date' },
+        { label: 'Fecha nacimiento', key: 'birth_date' }
     ], '#2b6cb0');
 
-    html += renderImportPreviewTable('4. Empleados sin cambios', unchanged, [
+    html += renderImportPreviewTable('5. Empleados sin cambios', unchanged, [
         { label: 'ID', get: emp => formatEmployeeNumber(emp.employee_number) },
         { label: 'Nombre', key: 'full_name' },
         { label: 'Departamento', key: 'department_name' },
@@ -633,7 +646,7 @@ function previewNewImport() {
                 notification.style.color = '#8a2a2a';
                 notification.style.backgroundColor = '#fde8e8';
                 notification.style.border = '1px solid #f5b5b5';
-            } else if ((data.altas && data.altas.length) || (data.bajas && data.bajas.length) || (data.reingresos && data.reingresos.length)) {
+            } else if ((data.altas && data.altas.length) || (data.bajas && data.bajas.length) || (data.reingresos && data.reingresos.length) || (data.birth_date_updates && data.birth_date_updates.length)) {
                 confirmBtn.style.display = 'inline-block';
             } else {
                 confirmBtn.style.display = 'none';
@@ -681,9 +694,10 @@ function confirmNewImport() {
             const altas = Number(summary.altas || 0);
             const bajas = Number(summary.bajas || 0);
             const reingresos = Number(summary.reingresos || 0);
+            const birthDateUpdates = Number(summary.actualizaciones_fecha_nacimiento || 0);
             const omitidos = Number(summary.omitidos || 0);
             const warnings = Array.isArray(summary.warnings) ? summary.warnings.length : Number(summary.warnings || 0);
-            const successMessage = `Importación aplicada con éxito. Cambios realizados: ${altas} altas, ${bajas} bajas y ${reingresos} reingresos. Omitidos / bajas no aplicables: ${omitidos}. Advertencias: ${warnings}. La página se recargará para mostrar la información actualizada.`;
+            const successMessage = `Importación aplicada con éxito. Cambios realizados: ${altas} altas, ${bajas} bajas, ${reingresos} reingresos y ${birthDateUpdates} actualizaciones de fecha de nacimiento. Omitidos / bajas no aplicables: ${omitidos}. Advertencias: ${warnings}. La página se recargará para mostrar la información actualizada.`;
 
             notification.style.display = 'block';
             notification.textContent = successMessage;
@@ -1246,6 +1260,40 @@ function extractBirthDateFromRFC(rfc) {
     return birthDate;
 }
 
+function parsePersonalDate(value) {
+    if (!value) return null;
+
+    if (value instanceof Date && !isNaN(value.getTime())) {
+        return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+    }
+
+    const text = String(value).trim();
+    if (!text) return null;
+
+    // Las columnas DATE de MySQL suelen recibirse como YYYY-MM-DD o como ISO.
+    // Se construye la fecha en horario local para evitar que el navegador reste
+    // un día por conversión automática a UTC.
+    const ymd = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (ymd) {
+        const year = Number(ymd[1]);
+        const month = Number(ymd[2]);
+        const day = Number(ymd[3]);
+        const date = new Date(year, month - 1, day);
+        if (
+            !isNaN(date.getTime()) &&
+            date.getFullYear() === year &&
+            date.getMonth() === month - 1 &&
+            date.getDate() === day
+        ) {
+            return date;
+        }
+        return null;
+    }
+
+    const parsed = new Date(text);
+    return isNaN(parsed.getTime()) ? null : parsed;
+}
+
 function calcularEdadDesdeFechaNacimiento(birthDate) {
     if (!birthDate || isNaN(birthDate.getTime())) {
         return "N/D";
@@ -1259,20 +1307,35 @@ function calcularEdadDesdeFechaNacimiento(birthDate) {
     return `${age} años`;
 }
 
+function hasStoredBirthDate(value) {
+    if (value === null || value === undefined) return false;
+
+    const text = String(value).trim();
+    return text !== '' && !/^0000-00-00(?:$|T|\s)/.test(text);
+}
+
+function resolveEmployeeBirthDate(emp) {
+    // La fecha guardada en personal.birth_date siempre tiene prioridad.
+    // El RFC se consulta solamente cuando la base de datos no contiene fecha.
+    if (hasStoredBirthDate(emp.birth_date)) {
+        return {
+            date: parsePersonalDate(emp.birth_date),
+            source: 'database'
+        };
+    }
+
+    return {
+        date: extractBirthDateFromRFC(emp.rfc),
+        source: 'rfc'
+    };
+}
+
 function buildPersonalRowHtml(emp) {
     const role = localStorage.getItem('role');
-    // Determinar fecha de nacimiento y edad
-    let birthDateParsed = null;
-    if (emp.birth_date) {
-        const parsed = new Date(emp.birth_date);
-        if (!isNaN(parsed.getTime())) {
-            birthDateParsed = parsed;
-        }
-    }
-    if (!birthDateParsed) {
-        // Fallback a RFC
-        birthDateParsed = extractBirthDateFromRFC(emp.rfc);
-    }
+    // Usar primero personal.birth_date. Sólo cuando esté vacío o NULL,
+    // intentar calcular la fecha desde el RFC como respaldo.
+    const birthDateResolution = resolveEmployeeBirthDate(emp);
+    const birthDateParsed = birthDateResolution.date;
     const fechaNacimiento = birthDateParsed ? formatDate(birthDateParsed) : 'N/D';
     const edad = birthDateParsed ? calcularEdadDesdeFechaNacimiento(birthDateParsed) : 'N/D';
     const antiguedad = calcularAntiguedad(emp.start_date, emp.fecha_reingreso);
