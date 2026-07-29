@@ -182,15 +182,16 @@ function parseExcel(buffer) {
  * @returns {Promise<object>} clasificación
  */
 async function classifyImportRows(rows) {
-    // Obtener los empleados existentes con su departamento y fecha de nacimiento.
-    // La fecha se consulta para detectar actualizaciones puntuales sin modificar
-    // puesto, departamento ni ningún otro dato del empleado.
-    const existing = await dbQuery('SELECT employee_number, department_name, birth_date FROM personal');
+    // Obtener los empleados existentes con su departamento, fecha de nacimiento y correo.
+    // Estos dos datos se consultan para detectar actualizaciones puntuales sin modificar
+    // puesto, departamento, NSS ni ningún otro dato del empleado.
+    const existing = await dbQuery('SELECT employee_number, department_name, birth_date, email FROM personal');
     const existingMap = new Map();
     existing.forEach(row => {
         existingMap.set(Number(row.employee_number), {
             department_name: normalizeImportText(row.department_name),
-            birth_date: normalizeDateForMySQL(row.birth_date)
+            birth_date: normalizeDateForMySQL(row.birth_date),
+            email: String(row.email ?? '').trim().toLowerCase() || null
         });
     });
 
@@ -199,6 +200,7 @@ async function classifyImportRows(rows) {
         bajas: [],
         reingresos: [],
         birth_date_updates: [],
+        email_updates: [],
         unchanged: [],
         // Omitidos / bajas no aplicables: casos informativos que no deben tratarse como error.
         // Ejemplo: empleado marcado como baja en la plantilla, pero no existe en el sistema.
@@ -251,7 +253,13 @@ async function classifyImportRows(rows) {
         const fecha_baja = normalizeDateForMySQL(getImportValue(row, ['fechabaja']));
         const fecha_reingreso = normalizeDateForMySQL(getImportValue(row, ['fechareingreso']));
         const nss = String(getImportValue(row, ['numerosegurosocial'])).trim();
-        const email = String(getImportValue(row, ['CorreoElectronico'])).trim().toLowerCase() || null;
+        const email = String(getImportValue(row, [
+            'CorreoElectronico',
+            'Correo Electronico',
+            'Correo electrónico',
+            'email',
+            'e-mail'
+        ])).trim().toLowerCase() || null;
         const rawBirthDate = getImportValue(row, [
             'fechanacimiento',
             'fecha nacimiento',
@@ -272,8 +280,13 @@ async function classifyImportRows(rows) {
         const exists = Boolean(existingRecord);
         const currentDepartment = existingRecord ? existingRecord.department_name : '';
         const currentBirthDate = existingRecord ? existingRecord.birth_date : null;
+        const currentEmail = existingRecord ? existingRecord.email : null;
         const wasBaja = currentDepartment === 'BAJA';
         const birthDateChanged = Boolean(exists && birth_date && birth_date !== currentBirthDate);
+        // Para empleados existentes, un correo vacío o una columna ausente nunca borra
+        // el valor guardado. Sólo se actualiza cuando la plantilla trae un correo no vacío
+        // y distinto al registrado actualmente.
+        const emailChanged = Boolean(exists && email && email !== currentEmail);
 
         // Construir objeto básico para vista previa
         const preview = {
@@ -299,13 +312,18 @@ async function classifyImportRows(rows) {
             });
         }
 
-        // Para cualquier empleado ya existente, la fecha de nacimiento se maneja
-        // como una actualización independiente. Esto garantiza que no se alteren
-        // su departamento, puesto, NSS, correo ni demás datos por el solo hecho de
+        // Para cualquier empleado ya existente, la fecha de nacimiento y el correo
+        // se manejan como actualizaciones independientes. Esto garantiza que no se
+        // alteren su departamento, puesto, NSS ni demás datos por el solo hecho de
         // aparecer nuevamente en la plantilla.
         if (birthDateChanged) {
             result.birth_date_updates.push(Object.assign({}, preview, {
                 previous_birth_date: currentBirthDate
+            }));
+        }
+        if (emailChanged) {
+            result.email_updates.push(Object.assign({}, preview, {
+                previous_email: currentEmail
             }));
         }
 
@@ -337,9 +355,9 @@ async function classifyImportRows(rows) {
             if (incomingIsBaja) {
                 if (wasBaja) {
                     // Ya está dado de baja en el sistema; no se vuelve a bajar.
-                    // Si cambió la fecha de nacimiento, aparecerá únicamente en
-                    // la sección de actualización de ese campo.
-                    if (!birthDateChanged) {
+                    // Si cambió la fecha de nacimiento o el correo, aparecerá en
+                    // la sección independiente del campo correspondiente.
+                    if (!birthDateChanged && !emailChanged) {
                         result.unchanged.push(Object.assign({}, preview, {
                             department_name: 'BAJA',
                             nota: 'Empleado ya estaba en Baja'
@@ -359,8 +377,9 @@ async function classifyImportRows(rows) {
                 }));
             } else {
                 // Sin cambios operativos. Si la única diferencia es la fecha de
-                // nacimiento, se clasifica en birth_date_updates y no como sin cambios.
-                if (!birthDateChanged) {
+                // nacimiento o el correo, se clasifica en su actualización puntual y no
+                // como empleado sin cambios.
+                if (!birthDateChanged && !emailChanged) {
                     result.unchanged.push(Object.assign({}, preview));
                 }
             }
@@ -1682,6 +1701,18 @@ app.post('/admin/personal/import-confirm', authenticateToken, requireAdminCurren
                             });
                         });
                     }
+                    // ACTUALIZACIONES DE CORREO ELECTRÓNICO
+                    // Este bloque modifica exclusivamente email para empleados
+                    // existentes cuando la plantilla trae un valor no vacío y diferente.
+                    for (const emp of classification.email_updates) {
+                        await new Promise((resolve, reject) => {
+                            const updateEmailQuery = `UPDATE personal SET email = ? WHERE employee_number = ?`;
+                            connection.query(updateEmailQuery, [emp.email, emp.employee_number], (err) => {
+                                if (err) return reject(err);
+                                resolve();
+                            });
+                        });
+                    }
                     // BAJAS
                     for (const emp of classification.bajas) {
                         // Solo aplicar baja si se proporciona una fecha de baja
@@ -1754,6 +1785,7 @@ app.post('/admin/personal/import-confirm', authenticateToken, requireAdminCurren
                             bajas: classification.bajas.length,
                             reingresos: classification.reingresos.length,
                             actualizaciones_fecha_nacimiento: classification.birth_date_updates.length,
+                            actualizaciones_correo: classification.email_updates.length,
                             omitidos: classification.omitidos ? classification.omitidos.length : 0,
                             warnings: classification.warnings.length
                         });
@@ -1765,6 +1797,7 @@ app.post('/admin/personal/import-confirm', authenticateToken, requireAdminCurren
                                 bajas: classification.bajas.length,
                                 reingresos: classification.reingresos.length,
                                 actualizaciones_fecha_nacimiento: classification.birth_date_updates.length,
+                                actualizaciones_correo: classification.email_updates.length,
                                 omitidos: classification.omitidos ? classification.omitidos.length : 0,
                                 warnings: classification.warnings
                             }

@@ -501,7 +501,7 @@ function renderImportPreviewTable(title, rows, columns, accentColor, sectionKey)
 
 function renderOmitidosTable(omitidos) {
     const rows = Array.isArray(omitidos) ? omitidos : [];
-    return renderImportPreviewTable('6. Omitidos / bajas no aplicables', rows, [
+    return renderImportPreviewTable('7. Omitidos / bajas no aplicables', rows, [
         { label: 'Fila', get: item => item.row || '' },
         { label: 'Motivo', get: item => item.reason || '' },
         { label: 'ID', get: item => item.data ? formatEmployeeNumber(item.data.employee_number || item.data.codigoempleado) : '' },
@@ -546,6 +546,7 @@ function filterNewImportPreview(filterKey, clickedButton) {
         bajas: 'los empleados que serán dados de baja',
         reingresos: 'los empleados que serán reingresados',
         fechas: 'las fechas de nacimiento que serán actualizadas',
+        correos: 'los correos electrónicos que serán actualizados',
         'sin-cambios': 'los empleados sin cambios',
         omitidos: 'los registros omitidos o las bajas no aplicables',
         advertencias: 'las advertencias detectadas'
@@ -563,6 +564,7 @@ function renderNewImportPreview(data) {
     const bajas = data.bajas || [];
     const reingresos = data.reingresos || [];
     const birthDateUpdates = data.birth_date_updates || [];
+    const emailUpdates = data.email_updates || [];
     const unchanged = data.unchanged || [];
     const omitidos = data.omitidos || [];
     const warnings = data.warnings || [];
@@ -576,7 +578,7 @@ function renderNewImportPreview(data) {
         { label: 'Correo', key: 'email' }
     ];
 
-    const totalRows = altas.length + bajas.length + reingresos.length + birthDateUpdates.length + unchanged.length + omitidos.length + warnings.length;
+    const totalRows = altas.length + bajas.length + reingresos.length + birthDateUpdates.length + emailUpdates.length + unchanged.length + omitidos.length + warnings.length;
 
     let html = `
         <div class="new-import-filter-bar" role="group" aria-label="Filtrar vista previa de importación">
@@ -585,6 +587,7 @@ function renderNewImportPreview(data) {
             <button type="button" class="new-import-filter-chip" data-import-filter="bajas" aria-pressed="false" onclick="filterNewImportPreview('bajas', this)" style="--chip-bg: #fde8e8; --chip-text: #8a2a2a;">Bajas: ${bajas.length}</button>
             <button type="button" class="new-import-filter-chip" data-import-filter="reingresos" aria-pressed="false" onclick="filterNewImportPreview('reingresos', this)" style="--chip-bg: #e6f0ff; --chip-text: #274472;">Reingresos: ${reingresos.length}</button>
             <button type="button" class="new-import-filter-chip" data-import-filter="fechas" aria-pressed="false" onclick="filterNewImportPreview('fechas', this)" style="--chip-bg: #efe6ff; --chip-text: #553c7b;">Fechas de nacimiento: ${birthDateUpdates.length}</button>
+            <button type="button" class="new-import-filter-chip" data-import-filter="correos" aria-pressed="false" onclick="filterNewImportPreview('correos', this)" style="--chip-bg: #e3f4f4; --chip-text: #285e61;">Correos: ${emailUpdates.length}</button>
             <button type="button" class="new-import-filter-chip" data-import-filter="sin-cambios" aria-pressed="false" onclick="filterNewImportPreview('sin-cambios', this)" style="--chip-bg: #f0f2f1; --chip-text: #4d5a52;">Sin cambios: ${unchanged.length}</button>
             <button type="button" class="new-import-filter-chip" data-import-filter="omitidos" aria-pressed="false" onclick="filterNewImportPreview('omitidos', this)" style="--chip-bg: #fff4df; --chip-text: #7a4b00;">Omitidos / bajas no aplicables: ${omitidos.length}</button>
             <button type="button" class="new-import-filter-chip" data-import-filter="advertencias" aria-pressed="false" onclick="filterNewImportPreview('advertencias', this)" style="--chip-bg: #fff0e5; --chip-text: #8a4315;">Advertencias: ${warnings.length}</button>
@@ -600,7 +603,7 @@ function renderNewImportPreview(data) {
 
     html += `
         <p style="margin: 0 0 14px; color: #4d5c4f; font-size: 13px;">
-            Las altas nuevas se muestran primero. La sección de fechas de nacimiento contiene empleados que ya existen y para los cuales se actualizará exclusivamente la <strong>fecha de nacimiento</strong>; sus demás datos permanecerán sin cambios.
+            Las altas nuevas se muestran primero. Para los empleados existentes, las secciones de fechas de nacimiento y correos muestran únicamente los campos que serán actualizados; el resto de sus datos permanecerá sin cambios. Un correo vacío en la plantilla no reemplazará el correo guardado.
         </p>`;
 
     // Orden fijo solicitado: altas nuevas primero.
@@ -619,7 +622,16 @@ function renderNewImportPreview(data) {
         { label: 'Puesto (sin cambios)', key: 'puesto' }
     ], '#805ad5', 'fechas');
 
-    html += renderImportPreviewTable('3. Empleados a dar de baja', bajas, [
+    html += renderImportPreviewTable('3. Correos electrónicos a actualizar', emailUpdates, [
+        { label: 'ID', get: emp => formatEmployeeNumber(emp.employee_number) },
+        { label: 'Nombre', key: 'full_name' },
+        { label: 'Correo guardado', key: 'previous_email' },
+        { label: 'Correo de plantilla', key: 'email' },
+        { label: 'Departamento (sin cambios)', key: 'department_name' },
+        { label: 'Puesto (sin cambios)', key: 'puesto' }
+    ], '#319795', 'correos');
+
+    html += renderImportPreviewTable('4. Empleados a dar de baja', bajas, [
         { label: 'ID', get: emp => formatEmployeeNumber(emp.employee_number) },
         { label: 'Nombre', key: 'full_name' },
         { label: 'Departamento actual / plantilla', key: 'department_name' },
@@ -627,14 +639,14 @@ function renderNewImportPreview(data) {
         { label: 'Fecha baja', key: 'fecha_baja' }
     ], '#c53030', 'bajas');
 
-    html += renderImportPreviewTable('4. Empleados a reingresar', reingresos, [
+    html += renderImportPreviewTable('5. Empleados a reingresar', reingresos, [
         ...commonColumns,
         { label: 'Fecha reingreso', key: 'fecha_reingreso' },
         { label: 'Fecha alta original / plantilla', key: 'start_date' },
         { label: 'Fecha nacimiento', key: 'birth_date' }
     ], '#2b6cb0', 'reingresos');
 
-    html += renderImportPreviewTable('5. Empleados sin cambios', unchanged, [
+    html += renderImportPreviewTable('6. Empleados sin cambios', unchanged, [
         { label: 'ID', get: emp => formatEmployeeNumber(emp.employee_number) },
         { label: 'Nombre', key: 'full_name' },
         { label: 'Departamento', key: 'department_name' },
@@ -686,7 +698,7 @@ function previewNewImport() {
                 notification.style.color = '#8a2a2a';
                 notification.style.backgroundColor = '#fde8e8';
                 notification.style.border = '1px solid #f5b5b5';
-            } else if ((data.altas && data.altas.length) || (data.bajas && data.bajas.length) || (data.reingresos && data.reingresos.length) || (data.birth_date_updates && data.birth_date_updates.length)) {
+            } else if ((data.altas && data.altas.length) || (data.bajas && data.bajas.length) || (data.reingresos && data.reingresos.length) || (data.birth_date_updates && data.birth_date_updates.length) || (data.email_updates && data.email_updates.length)) {
                 confirmBtn.style.display = 'inline-block';
             } else {
                 confirmBtn.style.display = 'none';
@@ -735,9 +747,10 @@ function confirmNewImport() {
             const bajas = Number(summary.bajas || 0);
             const reingresos = Number(summary.reingresos || 0);
             const birthDateUpdates = Number(summary.actualizaciones_fecha_nacimiento || 0);
+            const emailUpdates = Number(summary.actualizaciones_correo || 0);
             const omitidos = Number(summary.omitidos || 0);
             const warnings = Array.isArray(summary.warnings) ? summary.warnings.length : Number(summary.warnings || 0);
-            const successMessage = `Importación aplicada con éxito. Cambios realizados: ${altas} altas, ${bajas} bajas, ${reingresos} reingresos y ${birthDateUpdates} actualizaciones de fecha de nacimiento. Omitidos / bajas no aplicables: ${omitidos}. Advertencias: ${warnings}. La página se recargará para mostrar la información actualizada.`;
+            const successMessage = `Importación aplicada con éxito. Cambios realizados: ${altas} altas, ${bajas} bajas, ${reingresos} reingresos, ${birthDateUpdates} actualizaciones de fecha de nacimiento y ${emailUpdates} actualizaciones de correo. Omitidos / bajas no aplicables: ${omitidos}. Advertencias: ${warnings}. La página se recargará para mostrar la información actualizada.`;
 
             notification.style.display = 'block';
             notification.textContent = successMessage;

@@ -1,7 +1,7 @@
 {
   "name": "incidencias",
-  "version": "2.5.4",
-  "description": "CHC Incidencias 2.5.4 - Filtros interactivos en la vista previa de importación y prioridad de fecha de nacimiento guardada",
+  "version": "2.5.5",
+  "description": "CHC Incidencias 2.5.5 - Actualización puntual de fecha de nacimiento y correo desde la plantilla, con vista previa filtrable",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
