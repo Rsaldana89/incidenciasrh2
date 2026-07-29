@@ -456,13 +456,14 @@ function valueOrDash(value) {
     return text || '—';
 }
 
-function renderImportPreviewTable(title, rows, columns, accentColor) {
+function renderImportPreviewTable(title, rows, columns, accentColor, sectionKey) {
     const safeRows = Array.isArray(rows) ? rows : [];
     const countLabel = safeRows.length === 1 ? 'registro' : 'registros';
     const borderColor = accentColor || '#2f855a';
+    const safeSectionKey = String(sectionKey || '').replace(/[^a-z0-9_-]/gi, '');
 
     let html = `
-        <section style="margin-bottom: 22px; border: 1px solid #d7e6dc; border-radius: 10px; overflow: hidden; background: #fff;">
+        <section class="new-import-preview-section" data-import-section="${escapeHtml(safeSectionKey)}" style="margin-bottom: 22px; border: 1px solid #d7e6dc; border-radius: 10px; overflow: hidden; background: #fff;">
             <div style="display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 12px; background: #eef7f0; border-left: 6px solid ${borderColor};">
                 <strong style="font-size: 15px; color: #254b37;">${escapeHtml(title)}</strong>
                 <span style="font-size: 13px; color: #4b6354;">${safeRows.length} ${countLabel}</span>
@@ -507,7 +508,7 @@ function renderOmitidosTable(omitidos) {
         { label: 'Nombre', get: item => item.data ? (item.data.full_name || item.data.nombrelargo || '') : '' },
         { label: 'Departamento plantilla', get: item => item.data ? (item.data.department_name || item.data['descripcion departamento'] || '') : '' },
         { label: 'Fecha baja', get: item => item.data ? (item.data.fecha_baja || '') : '' }
-    ], '#b7791f');
+    ], '#b7791f', 'omitidos');
 }
 
 function renderWarningsTable(warnings) {
@@ -519,7 +520,42 @@ function renderWarningsTable(warnings) {
         { label: 'Nombre', get: item => item.data ? (item.data.full_name || item.data.nombrelargo || '') : '' },
         { label: 'Departamento', get: item => item.data ? (item.data.department_name || item.data['descripcion departamento'] || '') : '' },
         { label: 'Fecha nacimiento recibida', get: item => item.data ? (item.data.raw_birth_date || '') : '' }
-    ], '#c05621');
+    ], '#c05621', 'advertencias');
+}
+
+function filterNewImportPreview(filterKey, clickedButton) {
+    const previewContent = document.getElementById('new-import-preview-content');
+    if (!previewContent) return;
+
+    const normalizedFilter = String(filterKey || 'all');
+    const sections = previewContent.querySelectorAll('.new-import-preview-section');
+    sections.forEach(section => {
+        const sectionKey = section.getAttribute('data-import-section') || '';
+        section.hidden = normalizedFilter !== 'all' && sectionKey !== normalizedFilter;
+    });
+
+    previewContent.querySelectorAll('.new-import-filter-chip').forEach(button => {
+        const isActive = button === clickedButton || button.getAttribute('data-import-filter') === normalizedFilter;
+        button.classList.toggle('is-active', isActive);
+        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+
+    const labels = {
+        all: 'todas las secciones',
+        altas: 'las altas nuevas',
+        bajas: 'los empleados que serán dados de baja',
+        reingresos: 'los empleados que serán reingresados',
+        fechas: 'las fechas de nacimiento que serán actualizadas',
+        'sin-cambios': 'los empleados sin cambios',
+        omitidos: 'los registros omitidos o las bajas no aplicables',
+        advertencias: 'las advertencias detectadas'
+    };
+    const summary = document.getElementById('new-import-filter-summary');
+    if (summary) {
+        summary.textContent = `Mostrando ${labels[normalizedFilter] || 'la sección seleccionada'}.`;
+    }
+
+    previewContent.scrollTop = 0;
 }
 
 function renderNewImportPreview(data) {
@@ -540,16 +576,20 @@ function renderNewImportPreview(data) {
         { label: 'Correo', key: 'email' }
     ];
 
+    const totalRows = altas.length + bajas.length + reingresos.length + birthDateUpdates.length + unchanged.length + omitidos.length + warnings.length;
+
     let html = `
-        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
-            <span style="padding: 6px 10px; border-radius: 999px; background: #dff3e5; color: #255c3b; font-weight: 700;">Altas nuevas: ${altas.length}</span>
-            <span style="padding: 6px 10px; border-radius: 999px; background: #fde8e8; color: #8a2a2a; font-weight: 700;">Bajas: ${bajas.length}</span>
-            <span style="padding: 6px 10px; border-radius: 999px; background: #e6f0ff; color: #274472; font-weight: 700;">Reingresos: ${reingresos.length}</span>
-            <span style="padding: 6px 10px; border-radius: 999px; background: #efe6ff; color: #553c7b; font-weight: 700;">Fechas de nacimiento: ${birthDateUpdates.length}</span>
-            <span style="padding: 6px 10px; border-radius: 999px; background: #f0f2f1; color: #4d5a52; font-weight: 700;">Sin cambios: ${unchanged.length}</span>
-            <span style="padding: 6px 10px; border-radius: 999px; background: #fff4df; color: #7a4b00; font-weight: 700;">Omitidos / bajas no aplicables: ${omitidos.length}</span>
-            <span style="padding: 6px 10px; border-radius: 999px; background: #fff4df; color: #7a4b00; font-weight: 700;">Advertencias: ${warnings.length}</span>
-        </div>`;
+        <div class="new-import-filter-bar" role="group" aria-label="Filtrar vista previa de importación">
+            <button type="button" class="new-import-filter-chip is-active" data-import-filter="all" aria-pressed="true" onclick="filterNewImportPreview('all', this)" style="--chip-bg: #e8f2eb; --chip-text: #245a38;">Ver todos: ${totalRows}</button>
+            <button type="button" class="new-import-filter-chip" data-import-filter="altas" aria-pressed="false" onclick="filterNewImportPreview('altas', this)" style="--chip-bg: #dff3e5; --chip-text: #255c3b;">Altas nuevas: ${altas.length}</button>
+            <button type="button" class="new-import-filter-chip" data-import-filter="bajas" aria-pressed="false" onclick="filterNewImportPreview('bajas', this)" style="--chip-bg: #fde8e8; --chip-text: #8a2a2a;">Bajas: ${bajas.length}</button>
+            <button type="button" class="new-import-filter-chip" data-import-filter="reingresos" aria-pressed="false" onclick="filterNewImportPreview('reingresos', this)" style="--chip-bg: #e6f0ff; --chip-text: #274472;">Reingresos: ${reingresos.length}</button>
+            <button type="button" class="new-import-filter-chip" data-import-filter="fechas" aria-pressed="false" onclick="filterNewImportPreview('fechas', this)" style="--chip-bg: #efe6ff; --chip-text: #553c7b;">Fechas de nacimiento: ${birthDateUpdates.length}</button>
+            <button type="button" class="new-import-filter-chip" data-import-filter="sin-cambios" aria-pressed="false" onclick="filterNewImportPreview('sin-cambios', this)" style="--chip-bg: #f0f2f1; --chip-text: #4d5a52;">Sin cambios: ${unchanged.length}</button>
+            <button type="button" class="new-import-filter-chip" data-import-filter="omitidos" aria-pressed="false" onclick="filterNewImportPreview('omitidos', this)" style="--chip-bg: #fff4df; --chip-text: #7a4b00;">Omitidos / bajas no aplicables: ${omitidos.length}</button>
+            <button type="button" class="new-import-filter-chip" data-import-filter="advertencias" aria-pressed="false" onclick="filterNewImportPreview('advertencias', this)" style="--chip-bg: #fff0e5; --chip-text: #8a4315;">Advertencias: ${warnings.length}</button>
+        </div>
+        <div id="new-import-filter-summary" class="new-import-filter-summary" aria-live="polite">Mostrando todas las secciones.</div>`;
 
     if (data.import_blocked) {
         html += `
@@ -568,7 +608,7 @@ function renderNewImportPreview(data) {
         ...commonColumns,
         { label: 'Fecha alta', key: 'start_date' },
         { label: 'Fecha nacimiento', key: 'birth_date' }
-    ], '#2f855a');
+    ], '#2f855a', 'altas');
 
     html += renderImportPreviewTable('2. Fechas de nacimiento a actualizar', birthDateUpdates, [
         { label: 'ID', get: emp => formatEmployeeNumber(emp.employee_number) },
@@ -577,7 +617,7 @@ function renderNewImportPreview(data) {
         { label: 'Fecha de plantilla', key: 'birth_date' },
         { label: 'Departamento (sin cambios)', key: 'department_name' },
         { label: 'Puesto (sin cambios)', key: 'puesto' }
-    ], '#805ad5');
+    ], '#805ad5', 'fechas');
 
     html += renderImportPreviewTable('3. Empleados a dar de baja', bajas, [
         { label: 'ID', get: emp => formatEmployeeNumber(emp.employee_number) },
@@ -585,21 +625,21 @@ function renderNewImportPreview(data) {
         { label: 'Departamento actual / plantilla', key: 'department_name' },
         { label: 'Puesto', key: 'puesto' },
         { label: 'Fecha baja', key: 'fecha_baja' }
-    ], '#c53030');
+    ], '#c53030', 'bajas');
 
     html += renderImportPreviewTable('4. Empleados a reingresar', reingresos, [
         ...commonColumns,
         { label: 'Fecha reingreso', key: 'fecha_reingreso' },
         { label: 'Fecha alta original / plantilla', key: 'start_date' },
         { label: 'Fecha nacimiento', key: 'birth_date' }
-    ], '#2b6cb0');
+    ], '#2b6cb0', 'reingresos');
 
     html += renderImportPreviewTable('5. Empleados sin cambios', unchanged, [
         { label: 'ID', get: emp => formatEmployeeNumber(emp.employee_number) },
         { label: 'Nombre', key: 'full_name' },
         { label: 'Departamento', key: 'department_name' },
         { label: 'Puesto', key: 'puesto' }
-    ], '#718096');
+    ], '#718096', 'sin-cambios');
 
     html += renderOmitidosTable(omitidos);
     html += renderWarningsTable(warnings);

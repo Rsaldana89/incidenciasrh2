@@ -1,7 +1,7 @@
 {
   "name": "incidencias",
-  "version": "2.5.3",
-  "description": "CHC Incidencias 2.5.3 - Prioridad de fecha de nacimiento guardada con respaldo por RFC",
+  "version": "2.5.4",
+  "description": "CHC Incidencias 2.5.4 - Filtros interactivos en la vista previa de importación y prioridad de fecha de nacimiento guardada",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

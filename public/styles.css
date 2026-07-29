@@ -1999,3 +1999,59 @@ footer {
     margin-right: 6px;
     vertical-align: middle;
 }
+
+/* ---------- Filtros de la vista previa de importación de personal (versión 2.5.4) ---------- */
+.new-import-filter-bar {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: -2px 0 8px;
+    padding: 4px 2px 10px;
+    background: #f8fbf7;
+}
+
+.new-import-filter-chip {
+    appearance: none;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    padding: 7px 11px;
+    background: var(--chip-bg, #eef3ef);
+    color: var(--chip-text, #34483a);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+
+.new-import-filter-chip:hover {
+    transform: translateY(-1px);
+    border-color: var(--chip-text, #34483a);
+    box-shadow: 0 2px 5px rgba(29, 57, 39, 0.14);
+}
+
+.new-import-filter-chip:focus-visible {
+    outline: 3px solid rgba(44, 122, 75, 0.28);
+    outline-offset: 2px;
+}
+
+.new-import-filter-chip.is-active {
+    border-color: var(--chip-text, #34483a);
+    box-shadow: 0 0 0 2px rgba(44, 122, 75, 0.18);
+}
+
+.new-import-filter-summary {
+    margin: 0 0 14px;
+    color: #4d5c4f;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.new-import-preview-section[hidden] {
+    display: none !important;
+}
+
