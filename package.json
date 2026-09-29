@@ -1,7 +1,7 @@
 {
   "name": "incidencias",
-  "version": "2.5.5",
-  "description": "CHC Incidencias 2.5.5 - Actualización puntual de fecha de nacimiento y correo desde la plantilla, con vista previa filtrable",
+  "version": "2.5.7",
+  "description": "CHC Incidencias 2.5.7 - Conserva y valida fecha de baja en reingresos y permite reparar historial",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

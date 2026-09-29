@@ -132,6 +132,33 @@ function getTodayForMySQL() {
 }
 
 /**
+ * Valida la secuencia cronologica minima de un reingreso:
+ * fecha de alta original < fecha de baja < fecha de reingreso.
+ * Las fechas ya vienen normalizadas como YYYY-MM-DD, por lo que la
+ * comparacion lexicografica conserva el orden cronologico.
+ */
+function isValidReingresoTimeline(startDate, fechaBaja, fechaReingreso) {
+    if (!startDate || !fechaBaja || !fechaReingreso) return false;
+    return fechaBaja > startDate && fechaReingreso > fechaBaja;
+}
+
+/**
+ * Resuelve la fecha de baja historica que debe conservar un reingreso.
+ * Se prefiere la fecha de la plantilla cuando es coherente; si no lo es,
+ * se conserva la fecha ya guardada en el sistema siempre que tambien sea
+ * coherente con la fecha de alta original y la fecha de reingreso.
+ */
+function resolveReingresoBajaDate({ startDate, templateBaja, storedBaja, fechaReingreso }) {
+    if (isValidReingresoTimeline(startDate, templateBaja, fechaReingreso)) {
+        return { fecha_baja: templateBaja, source: 'plantilla' };
+    }
+    if (isValidReingresoTimeline(startDate, storedBaja, fechaReingreso)) {
+        return { fecha_baja: storedBaja, source: 'sistema' };
+    }
+    return { fecha_baja: null, source: null };
+}
+
+/**
  * Carga un libro de Excel desde un Buffer y devuelve un array de objetos por fila.
  * Si el archivo trae varias hojas, prioriza la hoja completa que incluya
  * estadoempleado, porque las bajas/reingresos deben decidirse con ese campo.
@@ -185,11 +212,14 @@ async function classifyImportRows(rows) {
     // Obtener los empleados existentes con su departamento, fecha de nacimiento y correo.
     // Estos dos datos se consultan para detectar actualizaciones puntuales sin modificar
     // puesto, departamento, NSS ni ningún otro dato del empleado.
-    const existing = await dbQuery('SELECT employee_number, department_name, birth_date, email FROM personal');
+    const existing = await dbQuery('SELECT employee_number, department_name, start_date, fecha_baja, fecha_reingreso, birth_date, email FROM personal');
     const existingMap = new Map();
     existing.forEach(row => {
         existingMap.set(Number(row.employee_number), {
             department_name: normalizeImportText(row.department_name),
+            start_date: normalizeDateForMySQL(row.start_date),
+            fecha_baja: normalizeDateForMySQL(row.fecha_baja),
+            fecha_reingreso: normalizeDateForMySQL(row.fecha_reingreso),
             birth_date: normalizeDateForMySQL(row.birth_date),
             email: String(row.email ?? '').trim().toLowerCase() || null
         });
@@ -274,11 +304,15 @@ async function classifyImportRows(rows) {
         // department_name === BAJA queda solo como respaldo si el área viene
         // explícitamente como Baja.
         const incomingIsBaja = estado === 'B' || estado === 'BAJA' || department_name === 'BAJA';
-        const incomingIsActiveOrReingreso = estado === 'A' || estado === 'ACTIVO' || estado === 'ALTA' || estado === 'R' || estado === 'REINGRESO';
+        const incomingIsExplicitReingreso = estado === 'R' || estado === 'REINGRESO';
+        const incomingIsActiveOrReingreso = estado === 'A' || estado === 'ACTIVO' || estado === 'ALTA' || incomingIsExplicitReingreso;
 
         const existingRecord = existingMap.get(codigo) || null;
         const exists = Boolean(existingRecord);
         const currentDepartment = existingRecord ? existingRecord.department_name : '';
+        const currentStartDate = existingRecord ? existingRecord.start_date : null;
+        const currentFechaBaja = existingRecord ? existingRecord.fecha_baja : null;
+        const currentFechaReingreso = existingRecord ? existingRecord.fecha_reingreso : null;
         const currentBirthDate = existingRecord ? existingRecord.birth_date : null;
         const currentEmail = existingRecord ? existingRecord.email : null;
         const wasBaja = currentDepartment === 'BAJA';
@@ -330,7 +364,7 @@ async function classifyImportRows(rows) {
         if (!exists) {
             // Alta nueva
             if (incomingIsBaja) {
-                // Si viene como baja pero no existe en el sistema, no es una advertencia crítica:
+                // Si viene como baja pero no existe en el sistema, no es una advertencia critica:
                 // solo se omite porque no hay empleado activo al cual aplicar la baja.
                 result.omitidos.push({
                     row: rowNumber,
@@ -348,15 +382,63 @@ async function classifyImportRows(rows) {
                     );
                     return;
                 }
-                result.altas.push(preview);
+
+                // Un empleado nuevo marcado como R/REINGRESO puede incorporarse aunque
+                // todavia no exista en Bitacora, pero debe conservar una secuencia
+                // historica coherente: alta < baja < reingreso.
+                if (incomingIsExplicitReingreso) {
+                    const fechaReingresoNuevaAlta = preview.fecha_reingreso || getTodayForMySQL();
+                    const bajaResolution = resolveReingresoBajaDate({
+                        startDate: preview.start_date,
+                        templateBaja: preview.fecha_baja,
+                        storedBaja: null,
+                        fechaReingreso: fechaReingresoNuevaAlta
+                    });
+
+                    if (preview.fecha_baja && bajaResolution.source !== 'plantilla') {
+                        result.warnings.push({
+                            row: rowNumber,
+                            reason: `Fecha de baja incoherente para reingreso; debe ser posterior a ${preview.start_date || 'la fecha de alta'} y anterior a ${fechaReingresoNuevaAlta}`,
+                            data: preview
+                        });
+                    }
+
+                    if (!bajaResolution.fecha_baja) {
+                        result.omitidos.push({
+                            row: rowNumber,
+                            reason: 'Reingreso no aplicado: falta una fecha de baja valida y coherente (alta < baja < reingreso)',
+                            data: Object.assign({}, preview, { fecha_reingreso: fechaReingresoNuevaAlta })
+                        });
+                        return;
+                    }
+
+                    result.altas.push(Object.assign({}, preview, {
+                        fecha_baja: bajaResolution.fecha_baja,
+                        fecha_reingreso: fechaReingresoNuevaAlta,
+                        alta_por_reingreso: true
+                    }));
+
+                    if (!preview.fecha_reingreso) {
+                        result.warnings.push({
+                            row: rowNumber,
+                            reason: 'Empleado nuevo marcado como reingreso sin fecha de reingreso; se usara la fecha actual',
+                            data: Object.assign({}, preview, {
+                                fecha_baja: bajaResolution.fecha_baja,
+                                fecha_reingreso: fechaReingresoNuevaAlta
+                            })
+                        });
+                    }
+                } else {
+                    result.altas.push(preview);
+                }
             }
         } else {
             // Existe en la base
             if (incomingIsBaja) {
                 if (wasBaja) {
-                    // Ya está dado de baja en el sistema; no se vuelve a bajar.
-                    // Si cambió la fecha de nacimiento o el correo, aparecerá en
-                    // la sección independiente del campo correspondiente.
+                    // Ya esta dado de baja en el sistema; no se vuelve a bajar.
+                    // Si cambio la fecha de nacimiento o el correo, aparecera en
+                    // la seccion independiente del campo correspondiente.
                     if (!birthDateChanged && !emailChanged) {
                         result.unchanged.push(Object.assign({}, preview, {
                             department_name: 'BAJA',
@@ -368,16 +450,101 @@ async function classifyImportRows(rows) {
                     result.bajas.push(Object.assign({}, preview));
                 }
             } else if (wasBaja && incomingIsActiveOrReingreso) {
-                // Reingreso: aplica cuando el empleado ya está en Baja en la base
-                // y aparece en la plantilla con estado activo/reingreso.
-                // Si la plantilla no trae fecha de reingreso, usar la fecha actual
-                // para dejar registro del día en que se está reactivando al empleado.
+                // Reingreso real: el empleado estaba en BAJA y la plantilla lo reactiva.
+                // Nunca se elimina la fecha de baja historica. Se usa primero la fecha
+                // valida de la plantilla y, si falta o es incoherente, la fecha valida
+                // que ya estuviera almacenada en el sistema.
+                const fechaReing = preview.fecha_reingreso || getTodayForMySQL();
+                const effectiveStartDate = currentStartDate || preview.start_date;
+                const bajaResolution = resolveReingresoBajaDate({
+                    startDate: effectiveStartDate,
+                    templateBaja: preview.fecha_baja,
+                    storedBaja: currentFechaBaja,
+                    fechaReingreso: fechaReing
+                });
+
+                if (preview.fecha_baja && bajaResolution.source !== 'plantilla') {
+                    result.warnings.push({
+                        row: rowNumber,
+                        reason: `Fecha de baja de plantilla incoherente; se ${bajaResolution.fecha_baja ? 'conservara la fecha valida guardada en el sistema' : 'omitira el reingreso'} (debe cumplirse alta < baja < reingreso)`,
+                        data: Object.assign({}, preview, {
+                            start_date: effectiveStartDate,
+                            fecha_baja_sistema: currentFechaBaja,
+                            fecha_reingreso: fechaReing
+                        })
+                    });
+                }
+
+                if (!bajaResolution.fecha_baja) {
+                    result.omitidos.push({
+                        row: rowNumber,
+                        reason: 'Reingreso no aplicado: no existe una fecha de baja valida anterior al reingreso',
+                        data: Object.assign({}, preview, {
+                            start_date: effectiveStartDate,
+                            fecha_reingreso: fechaReing
+                        })
+                    });
+                    return;
+                }
+
                 result.reingresos.push(Object.assign({}, preview, {
-                    fecha_reingreso: preview.fecha_reingreso || getTodayForMySQL()
+                    start_date: effectiveStartDate || preview.start_date,
+                    fecha_baja: bajaResolution.fecha_baja,
+                    fecha_reingreso: fechaReing,
+                    solo_historial: false
                 }));
+            } else if (incomingIsExplicitReingreso) {
+                // Reparacion de historial: permite volver a importar una plantilla despues
+                // de una version anterior que hubiera reingresado al empleado dejando
+                // fecha_baja en NULL. Si el empleado ya esta activo, solo se completan
+                // fecha_baja/fecha_reingreso; no se altera departamento, puesto, NSS ni correo.
+                const fechaReing = preview.fecha_reingreso || currentFechaReingreso || getTodayForMySQL();
+                const effectiveStartDate = currentStartDate || preview.start_date;
+                const bajaResolution = resolveReingresoBajaDate({
+                    startDate: effectiveStartDate,
+                    templateBaja: preview.fecha_baja,
+                    storedBaja: currentFechaBaja,
+                    fechaReingreso: fechaReing
+                });
+
+                if (preview.fecha_baja && bajaResolution.source !== 'plantilla') {
+                    result.warnings.push({
+                        row: rowNumber,
+                        reason: `Fecha de baja de plantilla incoherente; ${bajaResolution.fecha_baja ? 'se conservara la fecha valida del sistema' : 'no se completara el historial de reingreso'} (debe cumplirse alta < baja < reingreso)`,
+                        data: Object.assign({}, preview, {
+                            start_date: effectiveStartDate,
+                            fecha_baja_sistema: currentFechaBaja,
+                            fecha_reingreso: fechaReing
+                        })
+                    });
+                }
+
+                if (!bajaResolution.fecha_baja) {
+                    result.omitidos.push({
+                        row: rowNumber,
+                        reason: 'Historial de reingreso no actualizado: no hay una fecha de baja valida y coherente',
+                        data: Object.assign({}, preview, {
+                            start_date: effectiveStartDate,
+                            fecha_reingreso: fechaReing
+                        })
+                    });
+                    return;
+                }
+
+                const historyChanged = currentFechaBaja !== bajaResolution.fecha_baja || currentFechaReingreso !== fechaReing;
+                if (historyChanged) {
+                    result.reingresos.push(Object.assign({}, preview, {
+                        start_date: effectiveStartDate || preview.start_date,
+                        fecha_baja: bajaResolution.fecha_baja,
+                        fecha_reingreso: fechaReing,
+                        solo_historial: true
+                    }));
+                } else if (!birthDateChanged && !emailChanged) {
+                    result.unchanged.push(Object.assign({}, preview));
+                }
             } else {
-                // Sin cambios operativos. Si la única diferencia es la fecha de
-                // nacimiento o el correo, se clasifica en su actualización puntual y no
+                // Sin cambios operativos. Si la unica diferencia es la fecha de
+                // nacimiento o el correo, se clasifica en su actualizacion puntual y no
                 // como empleado sin cambios.
                 if (!birthDateChanged && !emailChanged) {
                     result.unchanged.push(Object.assign({}, preview));
@@ -1668,8 +1835,8 @@ app.post('/admin/personal/import-confirm', authenticateToken, requireAdminCurren
                     for (const emp of classification.altas) {
                         // Insertar empleado
                         await new Promise((resolve, reject) => {
-                            const insertQuery = `INSERT INTO personal (employee_number, full_name, rfc, curp, nss, email, puesto, department_name, start_date, fecha_baja, fecha_reingreso, birth_date) VALUES (?, ?, NULL, NULL, ?, ?, ?, ?, ?, NULL, NULL, ?)`;
-                            connection.query(insertQuery, [emp.employee_number, emp.full_name, emp.nss || null, emp.email, emp.puesto || null, emp.department_name || null, emp.start_date || null, emp.birth_date || null], (err) => {
+                            const insertQuery = `INSERT INTO personal (employee_number, full_name, rfc, curp, nss, email, puesto, department_name, start_date, fecha_baja, fecha_reingreso, birth_date) VALUES (?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?)`;
+                            connection.query(insertQuery, [emp.employee_number, emp.full_name, emp.nss || null, emp.email, emp.puesto || null, emp.department_name || null, emp.start_date || null, emp.fecha_baja || null, emp.fecha_reingreso || null, emp.birth_date || null], (err) => {
                                 if (err) {
                                     return reject(err);
                                 }
@@ -1728,14 +1895,26 @@ app.post('/admin/personal/import-confirm', authenticateToken, requireAdminCurren
                             });
                         });
                     }
-                    // REINGRESOS
+                    // REINGRESOS Y REPARACIONES DE HISTORIAL
                     for (const emp of classification.reingresos) {
                         await new Promise((resolve, reject) => {
-                            // Determinar fecha de reingreso: usar la fecha de la plantilla si viene;
-                            // si no, usar la fecha actual del día en que se confirma el reingreso.
                             const fechaReing = emp.fecha_reingreso || getTodayForMySQL();
-                            const updateQuery = `UPDATE personal SET department_name = ?, fecha_reingreso = ?, fecha_baja = NULL, puesto = IF(? IS NOT NULL AND ? <> '', ?, puesto), nss = IF(? IS NOT NULL AND ? <> '', ?, nss), email = IF(? IS NOT NULL AND ? <> '', ?, email) WHERE employee_number = ?`;
-                            const params = [emp.department_name || null, fechaReing,
+
+                            if (emp.solo_historial) {
+                                // El empleado ya esta activo: solo completar/corregir las fechas
+                                // historicas sin tocar sus datos operativos actuales.
+                                const historyQuery = `UPDATE personal SET fecha_baja = ?, fecha_reingreso = ? WHERE employee_number = ?`;
+                                connection.query(historyQuery, [emp.fecha_baja, fechaReing, emp.employee_number], (err) => {
+                                    if (err) return reject(err);
+                                    resolve();
+                                });
+                                return;
+                            }
+
+                            // Reingreso real desde BAJA: conservar la fecha de baja historica
+                            // ya validada en la clasificacion, en vez de borrarla con NULL.
+                            const updateQuery = `UPDATE personal SET department_name = ?, fecha_reingreso = ?, fecha_baja = ?, puesto = IF(? IS NOT NULL AND ? <> '', ?, puesto), nss = IF(? IS NOT NULL AND ? <> '', ?, nss), email = IF(? IS NOT NULL AND ? <> '', ?, email) WHERE employee_number = ?`;
+                            const params = [emp.department_name || null, fechaReing, emp.fecha_baja,
                                 emp.puesto, emp.puesto, emp.puesto,
                                 emp.nss, emp.nss, emp.nss,
                                 emp.email, emp.email, emp.email,
@@ -1746,7 +1925,13 @@ app.post('/admin/personal/import-confirm', authenticateToken, requireAdminCurren
                                 resolve();
                             });
                         });
-                        // Verificar si existen asistencias para el año actual
+
+                        // Una reparacion historica no debe crear ni modificar asistencias.
+                        if (emp.solo_historial) {
+                            continue;
+                        }
+
+                        // Verificar si existen asistencias para el ano actual
                         const [exists] = await new Promise((resolve, reject) => {
                             const checkQuery = `SELECT COUNT(*) AS count FROM asistencias WHERE EMPLOYEE_NUMBER = ? AND YEAR = ?`;
                             connection.query(checkQuery, [emp.employee_number, year], (err, rows) => {

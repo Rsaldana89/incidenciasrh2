@@ -603,13 +603,16 @@ function renderNewImportPreview(data) {
 
     html += `
         <p style="margin: 0 0 14px; color: #4d5c4f; font-size: 13px;">
-            Las altas nuevas se muestran primero. Para los empleados existentes, las secciones de fechas de nacimiento y correos muestran únicamente los campos que serán actualizados; el resto de sus datos permanecerá sin cambios. Un correo vacío en la plantilla no reemplazará el correo guardado.
+            Las altas nuevas se muestran primero. Para los empleados existentes, las secciones de fechas de nacimiento y correos muestran únicamente los campos que serán actualizados; el resto de sus datos permanecerá sin cambios. Un correo vacío en la plantilla no reemplazará el correo guardado. En reingresos, la fecha de baja solo se acepta si la secuencia es coherente: fecha de alta &lt; fecha de baja &lt; fecha de reingreso.
         </p>`;
 
     // Orden fijo solicitado: altas nuevas primero.
     html += renderImportPreviewTable('1. Empleados a dar de alta', altas, [
         ...commonColumns,
+        { label: 'Tipo', get: emp => emp.alta_por_reingreso ? 'REINGRESO' : 'ALTA' },
         { label: 'Fecha alta', key: 'start_date' },
+        { label: 'Fecha baja', key: 'fecha_baja' },
+        { label: 'Fecha reingreso', key: 'fecha_reingreso' },
         { label: 'Fecha nacimiento', key: 'birth_date' }
     ], '#2f855a', 'altas');
 
@@ -639,10 +642,12 @@ function renderNewImportPreview(data) {
         { label: 'Fecha baja', key: 'fecha_baja' }
     ], '#c53030', 'bajas');
 
-    html += renderImportPreviewTable('5. Empleados a reingresar', reingresos, [
+    html += renderImportPreviewTable('5. Empleados a reingresar / historial a completar', reingresos, [
+        { label: 'Acción', get: emp => emp.solo_historial ? 'COMPLETAR HISTORIAL' : 'REINGRESAR' },
         ...commonColumns,
-        { label: 'Fecha reingreso', key: 'fecha_reingreso' },
         { label: 'Fecha alta original / plantilla', key: 'start_date' },
+        { label: 'Fecha baja', key: 'fecha_baja' },
+        { label: 'Fecha reingreso', key: 'fecha_reingreso' },
         { label: 'Fecha nacimiento', key: 'birth_date' }
     ], '#2b6cb0', 'reingresos');
 
@@ -750,7 +755,7 @@ function confirmNewImport() {
             const emailUpdates = Number(summary.actualizaciones_correo || 0);
             const omitidos = Number(summary.omitidos || 0);
             const warnings = Array.isArray(summary.warnings) ? summary.warnings.length : Number(summary.warnings || 0);
-            const successMessage = `Importación aplicada con éxito. Cambios realizados: ${altas} altas, ${bajas} bajas, ${reingresos} reingresos, ${birthDateUpdates} actualizaciones de fecha de nacimiento y ${emailUpdates} actualizaciones de correo. Omitidos / bajas no aplicables: ${omitidos}. Advertencias: ${warnings}. La página se recargará para mostrar la información actualizada.`;
+            const successMessage = `Importación aplicada con éxito. Cambios realizados: ${altas} altas, ${bajas} bajas, ${reingresos} reingresos/ajustes de historial, ${birthDateUpdates} actualizaciones de fecha de nacimiento y ${emailUpdates} actualizaciones de correo. Omitidos / bajas no aplicables: ${omitidos}. Advertencias: ${warnings}. La página se recargará para mostrar la información actualizada.`;
 
             notification.style.display = 'block';
             notification.textContent = successMessage;
